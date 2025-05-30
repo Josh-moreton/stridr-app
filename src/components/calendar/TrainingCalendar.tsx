@@ -13,7 +13,7 @@ import {
 import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/context/AuthContext";
-import { getWorkoutEvents, saveWorkoutEvents, TrainingWorkout } from "@/lib/supabase-service";
+import { getWorkoutEvents, saveWorkoutEvent, updateWorkoutEvent, TrainingWorkout } from "@/lib/supabase-service";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -61,52 +61,69 @@ const TrainingCalendar: React.FC = () => {
         
         // Load events from Supabase if user is logged in
         if (user) {
-          const workoutEvents = await getWorkoutEvents();
-          
-          if (workoutEvents && workoutEvents.length > 0) {
-            // Convert Supabase workout events to calendar events
-            const calendarEvents: CalendarEvent[] = workoutEvents.map(workout => ({
-              id: workout.id,
-              title: workout.title,
-              start: workout.start_date,
-              end: workout.end_date,
-              allDay: workout.all_day,
-              extendedProps: {
-                calendar: workout.color || "Success",
-                description: workout.description,
-                workoutType: workout.workout_type,
-                distance: workout.distance,
-                pace: workout.pace
+          try {
+            const workoutEvents = await getWorkoutEvents();
+            
+            if (workoutEvents && workoutEvents.length > 0) {
+              // Convert Supabase workout events to calendar events
+              const calendarEvents: CalendarEvent[] = workoutEvents.map(workout => ({
+                id: workout.id,
+                title: workout.title,
+                start: workout.start_date,
+                end: workout.end_date,
+                allDay: workout.all_day,
+                extendedProps: {
+                  calendar: workout.color || "Success",
+                  description: workout.description,
+                  workoutType: workout.workout_type,
+                  distance: workout.distance,
+                  pace: workout.pace
+                }
+              }));
+              
+              setEvents(calendarEvents);
+            } else if (trainPlanData) {
+              // If no events in Supabase but we have training plan data, generate sample event
+              const planData = JSON.parse(trainPlanData);
+              
+              const sampleEvent: CalendarEvent = {
+                id: Date.now().toString(),
+                title: `${planData.plan.name} - Sample Workout`,
+                start: new Date().toISOString().split('T')[0],
+                allDay: true,
+                extendedProps: { 
+                  calendar: "Primary",
+                  description: "This is a sample workout from your training plan. Add your own workouts using the 'Add Workout +' button!",
+                  workoutType: "Easy",
+                  pace: planData.paces?.easy ? `${planData.paces.easy.min}:${String(planData.paces.easy.sec).padStart(2, '0')}` : "8:30"
+                }
+              };
+              
+              setEvents([sampleEvent]);
+            } else {
+              // User logged in but no data yet - show welcome message
+              setEvents([]);
+            }
+          } catch (dbError) {
+            console.warn('Database not ready yet, using demo mode:', dbError);
+            // Show demo events if database isn't set up yet
+            setEvents([
+              {
+                id: "demo-1",
+                title: "Easy Run (Demo)",
+                start: new Date().toISOString().split("T")[0],
+                extendedProps: { 
+                  calendar: "Success",
+                  workoutType: "Easy",
+                  distance: 5,
+                  pace: "9:30",
+                  description: "Demo workout - set up your database to save real workouts!"
+                },
               }
-            }));
-            
-            setEvents(calendarEvents);
-          } else if (trainPlanData) {
-            // If no events in Supabase but we have training plan data, generate events
-            const planData = JSON.parse(trainPlanData);
-            
-            // Here you would generate events from the training plan
-            // For now, we'll just add a sample event
-            const sampleEvent: CalendarEvent = {
-              id: Date.now().toString(),
-              title: `${planData.plan.name} - Sample Workout`,
-              start: new Date().toISOString().split('T')[0],
-              allDay: true,
-              extendedProps: { 
-                calendar: "Primary",
-                description: "This is a sample workout from your training plan.",
-                workoutType: "Easy",
-                pace: planData.paces.easy.min + ":" + String(planData.paces.easy.sec).padStart(2, '0')
-              }
-            };
-            
-            setEvents([sampleEvent]);
-          } else {
-            // Default empty state
-            setEvents([]);
+            ]);
           }
         } else {
-          // User not logged in, check if we have localStorage data
+          // User not logged in, show demo events
           if (trainPlanData) {
             const planData = JSON.parse(trainPlanData);
             
@@ -119,7 +136,7 @@ const TrainingCalendar: React.FC = () => {
                 calendar: "Primary",
                 description: "This is a sample workout from your training plan.",
                 workoutType: "Easy",
-                pace: planData.paces.easy.min + ":" + String(planData.paces.easy.sec).padStart(2, '0')
+                pace: planData.paces?.easy ? `${planData.paces.easy.min}:${String(planData.paces.easy.sec).padStart(2, '0')}` : "8:30"
               }
             };
             
@@ -165,7 +182,20 @@ const TrainingCalendar: React.FC = () => {
         }
       } catch (error) {
         console.error("Error loading calendar events:", error);
-        setErrorMessage("Failed to load your calendar events.");
+        setErrorMessage("Failed to load your calendar events. Using demo mode.");
+        // Set demo events as fallback
+        setEvents([
+          {
+            id: "demo-1",
+            title: "Demo Easy Run",
+            start: new Date().toISOString().split("T")[0],
+            extendedProps: { 
+              calendar: "Success",
+              workoutType: "Easy",
+              description: "Demo workout - sign in and set up database to save real workouts!"
+            },
+          }
+        ]);
       } finally {
         setIsLoading(false);
       }
@@ -222,23 +252,22 @@ const TrainingCalendar: React.FC = () => {
         setEvents(updatedEvents);
         
         if (isUserLoggedIn) {
-          // Update in Supabase too
-          const workoutsToUpdate: TrainingWorkout[] = [{
-            id: selectedEvent.id as string,
+          // Update in Supabase
+          const workoutUpdate = {
             title: eventTitle,
             description: eventDescription,
             start_date: eventStartDate,
-            end_date: eventEndDate !== eventStartDate ? eventEndDate : undefined,
+            end_date: eventEndDate !== eventStartDate ? eventEndDate : null,
             workout_type: selectedEvent.extendedProps.workoutType || "Other",
             color: eventLevel,
             all_day: true
-          }];
+          };
           
-          await saveWorkoutEvents(workoutsToUpdate);
+          await updateWorkoutEvent(selectedEvent.id as string, workoutUpdate);
         }
       } else {
         // Add new event
-        const newEventId = Date.now().toString();
+        const newEventId = isUserLoggedIn ? undefined : Date.now().toString();
         
         const newEvent: CalendarEvent = {
           id: newEventId,
@@ -253,39 +282,56 @@ const TrainingCalendar: React.FC = () => {
           },
         };
         
-        setEvents((prevEvents) => [...prevEvents, newEvent]);
-        
         if (isUserLoggedIn) {
-          // Save to Supabase
-          const workoutsToAdd: TrainingWorkout[] = [{
+          // Save to Supabase first, then update local state with the returned data
+          const workoutToAdd = {
             title: eventTitle,
-            description: eventDescription,
+            description: eventDescription || "",
             start_date: eventStartDate,
-            end_date: eventEndDate !== eventStartDate ? eventEndDate : undefined,
+            end_date: (eventEndDate && eventEndDate !== eventStartDate) ? eventEndDate : null, // Fix: use null instead of empty string
             workout_type: "Other",
             color: eventLevel || "Success",
             all_day: true
-          }];
+          };
           
-          await saveWorkoutEvents(workoutsToAdd);
+          console.log("Attempting to save workout:", workoutToAdd);
+          
+          const savedWorkout = await saveWorkoutEvent(workoutToAdd);
+          console.log("Saved workout successfully:", savedWorkout);
+          
+          // Update the event with the ID from the database
+          newEvent.id = savedWorkout.id;
+          
+          setEvents((prevEvents) => [...prevEvents, newEvent]);
+        } else {
+          // Just add to local state for demo mode
+          setEvents((prevEvents) => [...prevEvents, newEvent]);
         }
       }
       
       closeModal();
       resetModalFields();
     } catch (error) {
-      console.error("Error saving event:", error);
-      alert("Failed to save workout. Please try again.");
+      console.error("Full error object:", error);
+      const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+      alert(`Failed to save workout: ${errorMessage}. Please check the console for more details.`);
     }
   };
 
   const resetModalFields = () => {
     setEventTitle("");
     setEventDescription("");
-    setEventStartDate("");
-    setEventEndDate("");
+    // Set default dates to today instead of empty strings
+    const today = new Date().toISOString().split("T")[0];
+    setEventStartDate(today);
+    setEventEndDate(today);
     setEventLevel("Success");
     setSelectedEvent(null);
+  };
+
+  const openModalForNewEvent = () => {
+    resetModalFields();
+    openModal();
   };
 
   if (isLoading) {
@@ -331,7 +377,7 @@ const TrainingCalendar: React.FC = () => {
           customButtons={{
             addEventButton: {
               text: "Add Workout +",
-              click: openModal,
+              click: openModalForNewEvent, // Use this instead of just openModal
             },
           }}
         />

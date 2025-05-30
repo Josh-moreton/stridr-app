@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 
+
 interface PlanData {
   plan: {
     id: string;
@@ -30,7 +31,7 @@ export interface TrainingWorkout {
   title: string;
   description?: string;
   start_date: string;
-  end_date?: string;
+  end_date?: string | null; // Updated to allow null
   workout_type: string;
   distance?: number;
   pace?: string;
@@ -126,6 +127,37 @@ export const getUserTrainingPlans = async () => {
 };
 
 /**
+ * Get all user's workout events
+ */
+export const getWorkoutEvents = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('Not authenticated');
+    }
+    
+    const { data, error } = await supabase
+      .from('workout_events')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('start_date', { ascending: true });
+    
+    if (error) {
+      // If table doesn't exist or other DB error, return empty array instead of throwing
+      console.warn('Error fetching workout events:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching workout events:', error);
+    // Return empty array instead of throwing to prevent UI errors
+    return [];
+  }
+};
+
+/**
  * Save workout events to calendar
  */
 export const saveWorkoutEvents = async (workouts: TrainingWorkout[]) => {
@@ -148,6 +180,7 @@ export const saveWorkoutEvents = async (workouts: TrainingWorkout[]) => {
       .select();
     
     if (error) {
+      console.error('Error saving workout events:', error);
       throw error;
     }
     
@@ -159,9 +192,60 @@ export const saveWorkoutEvents = async (workouts: TrainingWorkout[]) => {
 };
 
 /**
- * Get all user's workout events
+ * Save a single workout event to calendar
  */
-export const getWorkoutEvents = async () => {
+export const saveWorkoutEvent = async (workout: Omit<TrainingWorkout, 'id'>) => {
+  try {
+    console.log("Starting saveWorkoutEvent with:", workout); // Debug log
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log("Current user:", user); // Debug log
+    
+    if (!user) {
+      throw new Error('Not authenticated');
+    }
+    
+    // Prepare workout event with user ID
+    const workoutWithUserId = {
+      ...workout,
+      user_id: user.id
+    };
+    
+    console.log("Workout with user ID:", workoutWithUserId); // Debug log
+    
+    const { data, error } = await supabase
+      .from('workout_events')
+      .insert([workoutWithUserId])
+      .select()
+      .single();
+    
+    console.log("Supabase response - data:", data, "error:", error); // Debug log
+    
+    if (error) {
+      console.error('Supabase error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
+    }
+    
+    if (!data) {
+      throw new Error('No data returned from database');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in saveWorkoutEvent:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update a workout event
+ */
+export const updateWorkoutEvent = async (id: string, workout: Partial<Omit<TrainingWorkout, 'id' | 'user_id'>>) => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -171,17 +255,49 @@ export const getWorkoutEvents = async () => {
     
     const { data, error } = await supabase
       .from('workout_events')
-      .select('*')
+      .update(workout)
+      .eq('id', id)
       .eq('user_id', user.id)
-      .order('start_date', { ascending: true });
+      .select()
+      .single();
     
     if (error) {
+      console.error('Error updating workout event:', error);
       throw error;
     }
     
     return data;
   } catch (error) {
-    console.error('Error fetching workout events:', error);
+    console.error('Error updating workout event:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a workout event
+ */
+export const deleteWorkoutEvent = async (id: string) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('Not authenticated');
+    }
+    
+    const { error } = await supabase
+      .from('workout_events')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+    
+    if (error) {
+      console.error('Error deleting workout event:', error);
+      throw error;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting workout event:', error);
     throw error;
   }
 };
