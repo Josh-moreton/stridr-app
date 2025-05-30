@@ -5,7 +5,7 @@
  * Uses precise lactate threshold and VO2max zones with scientific backing.
  */
 
-import { Units } from "../../@types/app";
+import { Units } from "../src/@types/app";
 import {
   BasePaceCalculator,
   RaceTime,

@@ -4,15 +4,17 @@
 
 import { PaceCalculator } from "./baseCalculator";
 import { PfitzingerPaceCalculator } from "./pfitzingerCalculator";
-import { HansonsPaceCalculator } from "./hansonsCalculator";
-import { HigdonPaceCalculator } from "./higdonCalculator";
-import { DanielsPaceCalculator } from "./danielsCalculator";
+// TODO: Import other calculators when they are implemented
+// import { HansonsPaceCalculator } from "./hansonsCalculator";
+// import { HigdonPaceCalculator } from "./higdonCalculator";
+// import { DanielsPaceCalculator } from "./danielsCalculator";
 
 // Initialize all calculators
 const pfitzingerCalculator = new PfitzingerPaceCalculator();
-const hansonsCalculator = new HansonsPaceCalculator();
-const higdonCalculator = new HigdonPaceCalculator();
-const danielsCalculator = new DanielsPaceCalculator();
+// TODO: Initialize other calculators when they are implemented
+// const hansonsCalculator = new HansonsPaceCalculator();
+// const higdonCalculator = new HigdonPaceCalculator();
+// const danielsCalculator = new DanielsPaceCalculator();
 
 // Provider patterns to match plan IDs
 const PROVIDER_PATTERNS = {
@@ -30,12 +32,12 @@ type ProviderKey = keyof typeof PROVIDER_PATTERNS;
 // Map providers to calculators
 const PROVIDER_CALCULATORS: Record<ProviderKey, PaceCalculator> = {
   pfitzinger: pfitzingerCalculator,
-  hansons: hansonsCalculator,
-  higdon: higdonCalculator,
-  boston: danielsCalculator, // Boston plans use scientific approach
-  coogan: danielsCalculator, // Coogan uses scientific approach
-  c25k: higdonCalculator, // C25K uses simple approach
-  test: danielsCalculator, // Test plans use default scientific approach
+  hansons: pfitzingerCalculator, // TODO: Use HansonsPaceCalculator when implemented
+  higdon: pfitzingerCalculator, // TODO: Use HigdonPaceCalculator when implemented
+  boston: pfitzingerCalculator, // TODO: Use DanielsPaceCalculator when implemented
+  coogan: pfitzingerCalculator, // TODO: Use DanielsPaceCalculator when implemented
+  c25k: pfitzingerCalculator, // TODO: Use HigdonPaceCalculator when implemented
+  test: pfitzingerCalculator, // TODO: Use DanielsPaceCalculator when implemented
 };
 
 /**
@@ -48,8 +50,8 @@ export function getPaceCalculatorForPlan(planId: string): PaceCalculator {
     }
   }
 
-  // Default to Daniels calculator for unrecognized plans
-  return danielsCalculator;
+  // Default to Pfitzinger calculator for unrecognized plans
+  return pfitzingerCalculator;
 }
 
 /**
@@ -57,10 +59,11 @@ export function getPaceCalculatorForPlan(planId: string): PaceCalculator {
  */
 export function getAllPaceCalculators(): PaceCalculator[] {
   return [
-    danielsCalculator,
     pfitzingerCalculator,
-    hansonsCalculator,
-    higdonCalculator,
+    // TODO: Add other calculators when they are implemented
+    // danielsCalculator,
+    // hansonsCalculator,
+    // higdonCalculator,
   ];
 }
 
@@ -74,7 +77,8 @@ export function getPaceCalculatorByName(name: string): PaceCalculator | null {
 
 export {
   PfitzingerPaceCalculator,
-  HansonsPaceCalculator,
-  HigdonPaceCalculator,
-  DanielsPaceCalculator,
+  // TODO: Export other calculators when they are implemented
+  // HansonsPaceCalculator,
+  // HigdonPaceCalculator,
+  // DanielsPaceCalculator,
 };

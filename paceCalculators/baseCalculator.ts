@@ -3,7 +3,7 @@
  * All provider-specific calculators extend this base
  */
 
-import { Units } from "../../@types/app";
+import { Units } from "../src/@types/app";
 
 export interface RaceTime {
   distance: string;
