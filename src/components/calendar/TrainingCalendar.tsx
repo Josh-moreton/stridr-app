@@ -14,7 +14,8 @@ import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/context/AuthContext";
 import { getWorkoutEvents, saveWorkoutEvent, updateWorkoutEvent, TrainingWorkout } from "@/lib/supabase-service";
-import { saveStructuredWorkout, convertCalendarEventToStructuredWorkout } from "@/lib/fit-workout-service";
+import { saveStructuredWorkout, convertCalendarEventToStructuredWorkout, FitWorkoutFile, getUserStructuredWorkouts } from "@/lib/fit-workout-service";
+import WorkoutBuilder from "./WorkoutBuilder";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -24,6 +25,7 @@ interface CalendarEvent extends EventInput {
     distance?: number;
     pace?: string;
     trainingPlanId?: string;
+    workout_file_id?: string;
   };
 }
 
@@ -37,6 +39,9 @@ const TrainingCalendar: React.FC = () => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isWorkoutBuilderOpen, setIsWorkoutBuilderOpen] = useState(false);
+  const [selectedStructuredWorkout, setSelectedStructuredWorkout] = useState<FitWorkoutFile | undefined>();
+  const [structuredWorkouts, setStructuredWorkouts] = useState<FitWorkoutFile[]>([]);
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
   const { user } = useAuth();
@@ -63,10 +68,18 @@ const TrainingCalendar: React.FC = () => {
         // Load events from Supabase if user is logged in
         if (user) {
           try {
-            const workoutEvents = await getWorkoutEvents();
+            // Load both regular workout events and structured workouts
+            const [workoutEvents, structuredWorkoutFiles] = await Promise.all([
+              getWorkoutEvents(),
+              getUserStructuredWorkouts()
+            ]);
             
+            setStructuredWorkouts(structuredWorkoutFiles);
+            
+            const allEvents: CalendarEvent[] = [];
+            
+            // Add regular workout events
             if (workoutEvents && workoutEvents.length > 0) {
-              // Convert Supabase workout events to calendar events
               const calendarEvents: CalendarEvent[] = workoutEvents.map(workout => ({
                 id: workout.id,
                 title: workout.title,
@@ -81,8 +94,30 @@ const TrainingCalendar: React.FC = () => {
                   pace: workout.pace
                 }
               }));
-              
-              setEvents(calendarEvents);
+              allEvents.push(...calendarEvents);
+            }
+            
+            // Add structured workouts as calendar events
+            if (structuredWorkoutFiles && structuredWorkoutFiles.length > 0) {
+              const structuredEvents: CalendarEvent[] = structuredWorkoutFiles.map(workout => ({
+                id: `structured-${workout.id}`,
+                title: `📋 ${workout.workout_name}`,
+                start: workout.time_created instanceof Date 
+                  ? workout.time_created.toISOString().split('T')[0] 
+                  : new Date(workout.time_created).toISOString().split('T')[0],
+                allDay: true,
+                extendedProps: {
+                  calendar: "Primary",
+                  description: `Structured workout with ${workout.num_valid_steps} steps`,
+                  workoutType: "Structured",
+                  workout_file_id: workout.id
+                }
+              }));
+              allEvents.push(...structuredEvents);
+            }
+            
+            if (allEvents.length > 0) {
+              setEvents(allEvents);
             } else if (trainPlanData) {
               // If no events in Supabase but we have training plan data, generate sample event
               const planData = JSON.parse(trainPlanData);
@@ -206,14 +241,26 @@ const TrainingCalendar: React.FC = () => {
   }, [user]);
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
-    resetModalFields();
-    setEventStartDate(selectInfo.startStr);
-    setEventEndDate(selectInfo.endStr || selectInfo.startStr);
-    openModal();
+    // Default to structured workout builder for better FIT file support
+    setSelectedStructuredWorkout(undefined);
+    setIsWorkoutBuilderOpen(true);
   };
 
   const handleEventClick = (clickInfo: EventClickArg) => {
     const event = clickInfo.event;
+    
+    // Check if this is a structured workout (has a workout_file_id)
+    if (event.extendedProps.workout_file_id) {
+      // Load the structured workout and open WorkoutBuilder
+      const structuredWorkout = structuredWorkouts.find(w => w.id === event.extendedProps.workout_file_id);
+      if (structuredWorkout) {
+        setSelectedStructuredWorkout(structuredWorkout);
+        setIsWorkoutBuilderOpen(true);
+        return;
+      }
+    }
+    
+    // Fallback to simple modal for legacy events
     setSelectedEvent(event as unknown as CalendarEvent);
     setEventTitle(event.title);
     setEventDescription(event.extendedProps.description || "");
@@ -221,6 +268,51 @@ const TrainingCalendar: React.FC = () => {
     setEventEndDate(event.end?.toISOString().split("T")[0] || event.start?.toISOString().split("T")[0] || "");
     setEventLevel(event.extendedProps.calendar);
     openModal();
+  };
+
+  const handleSaveStructuredWorkout = async (workout: FitWorkoutFile) => {
+    try {
+      if (!user) {
+        alert("Please sign in to save structured workouts");
+        return;
+      }
+
+      const workoutId = await saveStructuredWorkout(workout);
+      
+      // Create calendar event for the structured workout
+      const calendarEvent: CalendarEvent = {
+        id: `structured-${workoutId}`,
+        title: workout.workout_name,
+        start: new Date().toISOString().split('T')[0], // Today by default
+        allDay: true,
+        extendedProps: {
+          calendar: "Primary",
+          description: `Structured workout with ${workout.num_valid_steps} steps`,
+          workoutType: "Structured",
+          workout_file_id: workoutId
+        }
+      };
+
+      // Also save as a simple workout event for calendar display
+      const workoutEvent = {
+        title: workout.workout_name,
+        description: `Structured workout with ${workout.num_valid_steps} steps`,
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: null,
+        workout_type: "Structured",
+        color: "Primary",
+        all_day: true
+      };
+
+      await saveWorkoutEvent(workoutEvent);
+      
+      setEvents(prev => [...prev, calendarEvent]);
+      setStructuredWorkouts(prev => [...prev, { ...workout, id: workoutId }]);
+      setIsWorkoutBuilderOpen(false);
+    } catch (error) {
+      console.error('Error saving structured workout:', error);
+      alert('Failed to save structured workout. Please try again.');
+    }
   };
 
   const handleAddOrUpdateEvent = async () => {
@@ -335,6 +427,11 @@ const TrainingCalendar: React.FC = () => {
     openModal();
   };
 
+  const openWorkoutBuilderForNewWorkout = () => {
+    setSelectedStructuredWorkout(undefined);
+    setIsWorkoutBuilderOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -366,9 +463,9 @@ const TrainingCalendar: React.FC = () => {
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
           headerToolbar={{
-            left: "prev,next addEventButton",
+            left: "prev,next",
             center: "title",
-            right: "dayGridMonth,timeGridWeek,timeGridDay",
+            right: "structuredWorkoutButton,simpleWorkoutButton dayGridMonth,timeGridWeek,timeGridDay",
           }}
           events={events}
           selectable={true}
@@ -376,9 +473,13 @@ const TrainingCalendar: React.FC = () => {
           eventClick={handleEventClick}
           eventContent={renderEventContent}
           customButtons={{
-            addEventButton: {
-              text: "Add Workout +",
-              click: openModalForNewEvent, // Use this instead of just openModal
+            structuredWorkoutButton: {
+              text: "📋 Structured Workout",
+              click: openWorkoutBuilderForNewWorkout,
+            },
+            simpleWorkoutButton: {
+              text: "+ Quick Add",
+              click: openModalForNewEvent,
             },
           }}
         />
@@ -523,6 +624,13 @@ const TrainingCalendar: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      <WorkoutBuilder
+        isOpen={isWorkoutBuilderOpen}
+        onClose={() => setIsWorkoutBuilderOpen(false)}
+        onSave={handleSaveStructuredWorkout}
+        existingWorkout={selectedStructuredWorkout}
+      />
     </div>
   );
 };

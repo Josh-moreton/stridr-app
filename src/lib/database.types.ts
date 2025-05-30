@@ -37,6 +37,48 @@ export type WorkoutEvent = {
   all_day: boolean;
 }
 
+export type WorkoutFile = {
+  id: string;
+  user_id: string;
+  file_type: string;
+  manufacturer: string;
+  product: string;
+  serial_number?: number;
+  time_created: string;
+  workout_name: string;
+  sport: string;
+  capabilities?: number;
+  num_valid_steps: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type WorkoutStep = {
+  id: string;
+  workout_file_id: string;
+  user_id: string;
+  step_index: number;
+  step_name?: string;
+  message_index?: number;
+  duration_type: 'time' | 'distance' | 'calories' | 'open' | 'repeat_until_steps_cmplt';
+  duration_value?: number;
+  duration_time?: string;
+  duration_distance?: number;
+  target_type: 'speed' | 'heart_rate' | 'power' | 'cadence' | 'open' | 'pace';
+  target_value?: number;
+  target_low?: number;
+  target_high?: number;
+  custom_target_value_low?: number;
+  custom_target_value_high?: number;
+  intensity: 'active' | 'rest' | 'warmup' | 'cooldown';
+  repeat_steps?: number;
+  repeat_type?: string;
+  repeat_value?: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -54,6 +96,16 @@ export type Database = {
         Row: WorkoutEvent;
         Insert: Omit<WorkoutEvent, 'id'>;
         Update: Partial<Omit<WorkoutEvent, 'id'>>;
+      };
+      workout_files: {
+        Row: WorkoutFile;
+        Insert: Omit<WorkoutFile, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<WorkoutFile, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      workout_steps: {
+        Row: WorkoutStep;
+        Insert: Omit<WorkoutStep, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<WorkoutStep, 'id' | 'created_at' | 'updated_at'>>;
       };
     };
   };
