@@ -48,7 +48,7 @@ export type WorkoutFile = {
   workout_name: string;
   sport: string;
   capabilities?: number;
-  num_valid_steps: number;
+  num_valid_steps: number; // This stores the count, not the actual steps
   created_at: string;
   updated_at: string;
 }

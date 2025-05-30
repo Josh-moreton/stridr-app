@@ -133,7 +133,6 @@ const WorkoutBuilder: React.FC<WorkoutBuilderProps> = ({
       duration_distance: 400, // 400m default
       target_value: 6.0, // ~6:40/mile pace
       repeat_steps: 4,
-      repeat_type: 'repeat_until_steps_cmplt',
       step_name: '400m Intervals',
     };
 

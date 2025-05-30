@@ -101,24 +101,29 @@ export const WORKOUT_STEP_TYPES = {
 export const saveStructuredWorkout = async (workout: FitWorkoutFile): Promise<string> => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    
+
     if (!user) {
       throw new Error('Not authenticated');
     }
-    
+
+    // Prepare data for the 'workout_files' table, excluding the 'steps' array
+    // and ensuring 'time_created' is in the correct format.
+    const { steps, id, user_id, ...workoutDataForTable } = workout; // Destructure to remove steps, id, and user_id from the spread
+
     // Insert workout file
     const { data: workoutFile, error: workoutError } = await supabase
       .from('workout_files')
       .insert([{
-        ...workout,
+        ...workoutDataForTable, // Spread only the metadata
+        time_created: workout.time_created.toISOString(), // Convert Date to ISO string
         user_id: user.id,
-        num_valid_steps: workout.steps.length
+        num_valid_steps: workout.steps.length // Correctly calculate num_valid_steps
       }])
       .select()
       .single();
-    
+
     if (workoutError) throw workoutError;
-    
+
     // Insert workout steps
     const stepsWithIds = workout.steps.map((step, index) => ({
       ...step,
@@ -126,13 +131,13 @@ export const saveStructuredWorkout = async (workout: FitWorkoutFile): Promise<st
       user_id: user.id,
       step_index: index
     }));
-    
+
     const { error: stepsError } = await supabase
       .from('workout_steps')
       .insert(stepsWithIds);
-    
+
     if (stepsError) throw stepsError;
-    
+
     return workoutFile.id;
   } catch (error) {
     console.error('Error saving structured workout:', error);
