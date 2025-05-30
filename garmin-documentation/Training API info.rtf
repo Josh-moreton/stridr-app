@@ -1,0 +1,1136 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fswiss\fcharset0 ArialMT;\f2\fswiss\fcharset0 Arial-BoldMT;
+}
+{\colortbl;\red255\green255\blue255;\red35\green63\blue130;\red0\green0\blue0;\red251\green0\blue7;
+\red42\green75\blue126;\red255\green255\blue255;\red63\green108\blue175;\red0\green0\blue255;}
+{\*\expandedcolortbl;;\cspthree\c21418\c32137\c56577;\csgray\c0;\cspthree\c91747\c20037\c13852;
+\cspthree\c24976\c36895\c55367;\csgray\c100000;\cspthree\c35485\c50097\c72226;\cspthree\c22\c0\c95960;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f0\fs28\fsmilli14040 \cf2 GARMIN INTERNATIONAL\
+
+\fs72 \cf3 Garmin Connect Developer\
+Program\
+Training API V2\
+
+\fs43\fsmilli21960 Version 1.0\
+\cf4 CONFIDENTIAL
+\fs28\fsmilli14040 \cf5 1 Revision History\
+
+\f1\fs19\fsmilli9960 \cf6 Version\cf3  \cf6 Date\cf3  
+\fs23\fsmilli11579 1.0
+\fs22\fsmilli11040  
+\fs24\fsmilli12386 05/26/2025
+\fs22\fsmilli11040  
+\fs23\fsmilli11848 Initial version\
+
+\fs19\fsmilli9960 \cf6 Revisions
+\f0\fs28\fsmilli14040 \cf5 Contents\
+
+\fs19\fsmilli9960 \cf3 1 Revision History ...................................................................................................................................... 2\
+2 Getting Started ....................................................................................................................................... 4\
+
+\f1 2.1 Purpose of the API ...................................................................................................................... 4\
+2.2 Consumer Key and Secret .......................................................................................................... 4\
+2.3 User Registration ........................................................................................................................ 4\
+2.4 Training API Import Types .......................................................................................................... 5\
+2.5 Requesting a Production Key ..................................................................................................... 5\
+2.6 API Rate Limiting or Excessive Usage ....................................................................................... 6\
+
+\f0 3 Training API Endpoint Details .................................................................................................................. 7\
+
+\f1 3.1 Training API Permissions............................................................................................................ 7\
+3.2 Workouts ..................................................................................................................................... 8\
+
+\f0 3.2.1 Field Definitions ....................................................................................................................................... 8\
+3.2.2 Example JSON ........................................................................................................................................ 14\
+3.2.3 Create .................................................................................................................................................... 21\
+3.2.4 Retrieve .................................................................................................................................................. 21\
+3.2.5 Update ................................................................................................................................................... 21\
+3.2.6 Delete .................................................................................................................................................... 21\
+3.2.7 Response Code ....................................................................................................................................... 21\
+
+\f1 3.3 Workout Schedules ................................................................................................................... 22\
+
+\f0 3.3.1 Field Definitions ..................................................................................................................................... 22\
+3.3.2 Example JSON ........................................................................................................................................ 22\
+3.3.3 Create .................................................................................................................................................... 22\
+3.3.4 Retrieve .................................................................................................................................................. 22\
+3.3.5 Update ................................................................................................................................................... 22\
+3.3.6 Delete .................................................................................................................................................... 23\
+3.3.7 Retrieve by Date .................................................................................................................................... 23\
+3.3.8 Response Code ....................................................................................................................................... 23
+\fs28\fsmilli14040 \cf5 2 Getting Started\
+
+\fs25\fsmilli12960 \cf7 2.1 Purpose of the API\
+
+\fs23\fsmilli11815 \cf3 The Garmin Connect Training API is the underlying mechanism that allows users to\
+import workouts and workout schedules from third-party platforms for supported\
+activity types into their Garmin Connect account, making it easy to manage this type of\
+information in a centralized location.\
+
+\fs23\fsmilli11858 Support Email
+\fs23\fsmilli11815 : \cf8 connect-support@developer.garmin.com\
+
+\fs25\fsmilli12960 \cf7 2.2 Consumer Key and Secret\
+
+\fs23\fsmilli11815 \cf3 Garmin Connect Training API partners will be provided with a consumer key and secret,\
+which will be used to gain access to the Training API. The consumer key is used to\
+identify a partner\'92s app uniquely, and the consumer secret is used to validate that the\
+requests received are from that partner and not from a third party that has gained\
+unauthorized access to the consumer key. The consumer key can be considered public\
+information, 
+\fs23\fsmilli11843 but the consumer secret is private
+\fs23\fsmilli11815 . For the security of users, the\
+consumer secret should be secured and never sent over a network in plain text.\
+Consumer key credentials are created using the Developer Portal and the creation of\
+apps (\cf8 https://developerportal.garmin.com/user/me/apps?program=829
+\fs22\fsmilli11040 )
+\fs23\fsmilli11815 \cf3 .\
+
+\fs23\fsmilli11843 Your first app is designed for testing, and the partner must pass the app review to\
+request a production-level app for commercial use.\
+-
+\f2\b\fs23\fsmilli11793  
+\f0\b0\fs23\fsmilli11843 Please see \'93Requesting a Production Key\'94 below for more information.\
+-
+\f2\b\fs23\fsmilli11793  
+\f0\b0\fs23\fsmilli11843 Evaluation-level apps violating API guidelines may be disabled with no prior\
+notice.\
+
+\fs25\fsmilli12960 \cf7 2.3 User Registration\
+
+\fs23\fsmilli11815 \cf3 Before a partner can write data to a user\'92s account, the user must grant the partner write\
+access. Please refer to the detailed Garmin OAuth documentation for details on acquiring,\
+authorizing, and signing with a User Access Token (UAT) to write data to a Garmin user\'92s\
+account.
+\fs25\fsmilli12960 \cf7 2.4 Training API Import Types\
+
+\fs23\fsmilli11815 \cf3 All data uploaded to Garmin Connect via the Training API can either be categorized as a\
+workout or a workout schedule. The API allows for the standard CRUD operations on\
+these two data types.\
+
+\fs22\fsmilli11040 \'95
+\f1  
+\f0 Workout\
+
+\fs23\fsmilli11815 A workout contains a list of steps for the user to take as part of their workout, as well as\
+metadata about the workout (e.g. description, sport type, etc.).\
+
+\fs22\fsmilli11040 \'95
+\f1  
+\f0 Workout Schedule\
+
+\fs23\fsmilli11815 A workout schedule allows a previously defined workout to be scheduled for a specified\
+day.\
+
+\fs25\fsmilli12960 \cf7 2.5 Requesting a Production Key\
+
+\fs23\fsmilli11815 \cf3 The first consumer key generated through the Developer Portal is an evaluation key. This\
+key is rate-limited and should only be used for testing, evaluation, and development. To\
+receive production-level credentials, Garmin must review and approve the Training API\
+integration to ensure high-quality user experience in Garmin Connect. Garmin will also\
+review partner applications and/or websites to ensure proper usage of Garmin assets\
+(e.g., device images, logos) and adherence to Garmin brand guidelines.\
+Please email Training API support at \cf8 connect-support@developer.garmin.com\cf3  to\
+request and schedule a production readiness review.\
+Garmin will review the following technical review:\
+
+\fs23\fsmilli11843 \'95
+\f1\fs23\fsmilli11848  
+\f0\fs23\fsmilli11815 Authorization for at least two Garmin Connect users.\
+
+\fs23\fsmilli11843 \'95
+\f1\fs23\fsmilli11848  
+\f0\fs23\fsmilli11815 No unnecessary or excessive API call utilization or volume.\
+
+\fs23\fsmilli11843 \'95
+\f1\fs23\fsmilli11848  
+\f0\fs23\fsmilli11815 Proper handling of quota violations and subsequent retry attempts.\
+User experience review. This review can be achieved through a demonstration\
+application to Garmin via video conference or other mutually agreed-upon method. This\
+review is used to confirm that the following criteria are met:\
+
+\fs23\fsmilli11843 \'95
+\f1\fs23\fsmilli11848  
+\f0\fs23\fsmilli11815 Proper representation of all Garmin trademarked/copyrighted terms.\
+
+\fs23\fsmilli11843 \'95
+\f1\fs23\fsmilli11848  
+\f0\fs23\fsmilli11815 Proper representation of Garmin products and product images.\
+
+\fs23\fsmilli11843 \'95
+\f1\fs23\fsmilli11848  
+\f0\fs23\fsmilli11815 The user experience (UX) flow does not misrepresent Garmin or portray it in a\
+negative light.
+\fs25\fsmilli12960 \cf7 2.6 API Rate Limiting or Excessive Usage\
+
+\fs23\fsmilli11815 \cf3 To manage capacity and ensure system stability, Garmin Training API implementations\
+may be subject to rate limiting.\
+Please plan the implementation with the following limitations in mind:\
+
+\fs23\fsmilli11858 Evaluation Rate Limits\
+
+\fs23\fsmilli11815 100 API call requests per partner per minute - a rolling 60 second window summing the\
+Oauth requests and API calls.\
+200 API call requests per user per day - a rolling 24\uc0\u8208 hour window excluding Oauth\
+requests.\
+
+\fs23\fsmilli11858 Production Rate limits\
+
+\fs23\fsmilli11815 3000 API call requests per partner per minute - a rolling 60 second window summing the\
+Oauth requests and API calls.\
+1000 API call requests per user per day - a 24-hour window rolling excluding Oauth\
+requests.\
+If one or both above limits are exceeded by a partner or a specific user, the subsequent\
+API call request attempts will receive an HTTP Status Code 429 (too many requests). The\
+calls in question will need to be attempted again later.
+\fs28\fsmilli14040 \cf5 3 Training API Endpoint Details\
+
+\fs25\fsmilli12960 \cf7 3.1 Training API Permissions\
+
+\fs23\fsmilli11815 \cf3 Consumers can have multiple permissions like \'93Activity Export\'94 and \'93Workout Import\'94\
+set up with GC. Users, while signing up may only opt in for fewer permissions, so this\
+endpoint helps in fetching the permissions for that particular user.\
+Method & URL: GET \cf8 https://apis.garmin.com/userPermissions/\
+\cf3 Response body: The retrieved user permissions in JSON.\
+Example response for this endpoint:\
+\{[ "WORKOUT_IMPORT"]\}\
+Users can change their permission after the permission at their \cf8 Garmin Connect account\
+settings\cf3 ; Partners will be notified via the User Permission summary Endpoint (see Start\
+Guide, section 2.6.3 for the summary description)
+\fs25\fsmilli12960 \cf7 3.2 Workouts\
+
+\fs22\fsmilli11040 3.2.1 Field Definitions\
+\cf3 Multisport workouts have a limit of 25 segments (25 individual sports) and 250 steps overall. Single sport\
+workout (one segment) has a limit of 100 steps.\
+List of devices supporting each workout sport types\
+
+\fs23\fsmilli11815 \cf8 https://support.garmin.com/en-US/?faq=lLvhWrmlMv0vGmyGpWjOX6\
+
+\fs22\fsmilli11040 \cf3 Workout Data 
+\fs24 Type 
+\fs22\fsmilli11040 Description\
+
+\f1\fs21\fsmilli10902 workoutId
+\fs19\fsmilli9960  
+\fs20\fsmilli10094 Long
+\fs19\fsmilli9960  
+\fs21\fsmilli10633 A unique identifier for the Workout. This field is not\
+necessary for the Create action and will be set\
+automatically.\
+ownerId
+\fs19\fsmilli9960  
+\fs20\fsmilli10094 Long
+\fs19\fsmilli9960  
+\fs21\fsmilli10633 A unique identifier for the owner of the Workout. This\
+field is not necessary for Creating workouts but is\
+required for updates.\
+workoutName
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 The name of the Workout.\
+
+\fs21\fsmilli10633 description
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\fs21\fsmilli10633 A description of the Workout with a maximum length of\
+1024 characters. Longer descriptions will be truncated.\
+updatedDate
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\fs21\fsmilli10633 A datetime representing the last update time of the\
+Workout, formatted 
+\fs20\fsmilli10364 as YYYY-mm-dd. Example: "2019-\
+01-14T16:25:10.0\'94. This field is not 
+\fs21\fsmilli10633 necessary for Create\
+or Update actions and will be set automatically.\
+
+\fs20\fsmilli10364 createdDate
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\fs21\fsmilli10633 A datetime representing the creation time of the\
+Workout, formatted as YYYY-mm-dd. Example: "2019-\
+01-14T16:25:10.0\'94. This field is not necessary for\
+Create or Update actions and will be set automatically.\
+
+\fs21\fsmilli10902 sport
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\fs20\fsmilli10094 The type of sport.\
+Multi Sport workouts: MULTI_SPORT\
+Single Segment (sport) workouts: RUNNING, CYCLING,\
+LAP_SWIMMING, 
+\fs19\fsmilli9960 STRENGTH_TRAINING,\
+CARDIO_TRAINING, GENERIC (supported by some 
+\fs20\fsmilli10094 devices\
+only), YOGA, PILATES\
+
+\fs20\fsmilli10364 estimatedDurationInSecs
+\fs19\fsmilli9960  
+\fs21\fsmilli10633 Integer
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 The estimated duration of the Workout in seconds. This\
+value is calculated server-side and will be ignored in\
+Create and Update actions.\
+estimatedDistanceInMeters
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 Double
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 The estimated distance of the Workout in meters. This\
+value is calculated server-side and will be ignored in\
+Create and Update actions.\
+poolLength
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 Double
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 The length of the pool. Used for when LAP_SWIMMING\
+segment is present.
+\fs21\fsmilli10633 poolLengthUnit
+\fs19\fsmilli9960  
+\fs21\fsmilli10633 workoutProvider
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 workoutSourceId
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 isSessionTransitionEnabled Segment 
+\f0\fs22\fsmilli11040 Segment
+\f1\fs20\fsmilli10364  
+\f0\fs22\fsmilli11040 segmentOrder sport 
+\f1\fs20\fsmilli10364 estimatedDurationInSecs
+\f0\fs22\fsmilli11040  
+\f1\fs20\fsmilli10364 estimatedDistanceInMeters poolLength 
+\fs21\fsmilli10633 poolLengthUnit
+\fs20\fsmilli10364  steps
+\fs21\fsmilli10633  
+\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 Boolean 
+\fs20\fsmilli10094 List<Segments>
+\fs22\fsmilli11040  
+\f0 Data Type
+\f1\fs20\fsmilli10094  
+\f0\fs22\fsmilli11040 Integer String 
+\f1\fs21\fsmilli10633 Integer
+\f0\fs22\fsmilli11040  
+\f1\fs20\fsmilli10364 Double
+\fs21\fsmilli10633  
+\fs20\fsmilli10364 Double String 
+\fs20\fsmilli10094 List<Step>
+\fs20\fsmilli10364  Pull Length can be null for undefined pulls (not all devices\
+support undefined pool, see Appendix C)\
+The unit of the pool length. Valid values: YARD, METER.\
+
+\fs21\fsmilli10633 The workout provider to display to the user.\
+The workout provider to use for internal tracking\
+purposes. This value should be the same as\
+workoutProvider unless otherwise noted.\
+Must be set to true if workouts should have transitions\
+for multisport workouts.\
+A list of Segments (individual sports) that specify the\
+details of the workout.\
+
+\f0\fs22\fsmilli11040 Description\
+
+\f1\fs20\fsmilli10364 Represents the order of the Segments (individual sport)\
+
+\fs20\fsmilli10094 The type of sport.\
+Valid values: RUNNING, CYCLING, LAP_SWIMMING,\
+
+\fs19\fsmilli9960 STRENGTH_TRAINING, CARDIO_TRAINING, GENERIC\
+(supported by some 
+\fs20\fsmilli10094 devices only), YOGA, PILATES\
+
+\fs20\fsmilli10364 The estimated duration of the Segment in seconds. This\
+value is calculated server-side and will be ignored in Create\
+and Update actions.\
+Will be set to null for single segments workouts\
+The estimated distance of the Segment in meters. This\
+value is calculated server-side and will be ignored in\
+Create and Update actions.\
+Will be set to null for single segments workouts\
+The length of the pool. Used for LAP_SWIMMING.\
+Must match poolLenght provided in the Workout section\
+for Multi Sport workouts.\
+Will be set to null for single segments workouts\
+(see examples below)\
+The unit of the pool length. Valid values: YARD, METER.\
+Must match poolLenght provided in the Workout section\
+for Multi Sport workouts.\
+Will be set to null for single segments workouts\
+(see examples below)\
+
+\fs21\fsmilli10633 A list of Steps that specify the details of the workout.
+\f0\fs22\fsmilli11040 WorkoutStep 
+\f1\fs21\fsmilli10633 type
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 stepId
+\fs19\fsmilli9960  
+\fs21\fsmilli10633 stepOrder
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 repeatType
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 repeatValue
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 skipLastRestStep steps
+\fs19\fsmilli9960  
+\fs21\fsmilli10633 intensity
+\fs19\fsmilli9960  
+\fs21\fsmilli10633 description
+\fs19\fsmilli9960  
+\fs21\fsmilli10633 durationType
+\fs19\fsmilli9960  
+\f0\fs22\fsmilli11040 Data Type 
+\f1\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\fs20\fsmilli10094 Long
+\fs19\fsmilli9960  
+\fs21\fsmilli10633 Integer
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 Double
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 Boolean 
+\fs20\fsmilli10094 List<Step>
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\fs20\fsmilli10364 String
+\fs19\fsmilli9960  
+\f0\fs22\fsmilli11040 Description\
+
+\f1\fs20\fsmilli10364 The type of Step. Valid values are WorkoutStep and\
+WorkoutRepeatStep. WorkoutStep type Steps contains\
+details of the Step itself, while workoutRepeatSteps\
+contain a sub-list of Steps that should be repeated until a\
+condition is met as specified in the repeatType and\
+repeatValue field.\
+A unique ID is generated for Step. This value is calculated\
+server-side and will be ignored in Create actions.\
+Represents the order of the Step.\
+The type of repeat action specifies how long or until\
+when the user should repeat the sub-list of Steps. Used\
+only for 
+\fs19\fsmilli9960 WorkoutRepeatSteps. Valid values:\
+REPEAT_UNTIL_STEPS_CMPLT, REPEAT_UNTIL_TIME,\
+REPEAT_UNTIL_DISTANCE, REPEAT_UNTIL_CALORIES,\
+REPEAT_UNTIL_HR_LESS_THAN,\
+REPEAT_UNTIL_HR_GREATER_THAN,\
+REPEAT_UNTIL_POWER_LESS_THAN,\
+REPEAT_UNTIL_POWER_GREATER_THAN,\
+REPEAT_UNTIL_POWER_LAST_LAP_LESS_THAN,\
+REPEAT_UNTIL_MAX_POWER_LAST_LAP_LESS_THAN\
+
+\fs20\fsmilli10364 The value of repeating action. When paired with\
+repeatType, specifies how long or until when the user\
+should repeat the sub list of steps. Used only for\
+WorkoutRepeatSteps.\
+
+\fs19\fsmilli9960 Flag to support Garmin Connect Skip Rest step feature. Set to\
+true automatically for all LAP_SWIMMING workouts to support\
+backward compatibility.\
+
+\fs20\fsmilli10364 The list of steps that should be repeated as specified by\
+repeatType and repeatValue. Used only for\
+WorkoutRepeatSteps.\
+
+\fs19\fsmilli9960 The intensity of the Step. Valid values: REST, WARMUP,\
+COOLDOWN, RECOVERY, INTERVAL, MAIN (SWIM only)\
+
+\fs21\fsmilli10633 A description of the Step with a maximum of 512\
+characters. Longer descriptions will be truncated.\
+
+\fs20\fsmilli10094 The type of duration. Paired with durationValue, this\
+represents the relative duration of the Step. Valid values:\
+TIME, DISTANCE, 
+\fs19\fsmilli9960 HR_LESS_THAN, HR_GREATER_THAN,\
+CALORIES, OPEN, POWER_LESS_THAN,\
+POWER_GREATER_THAN, TIME_AT_VALID_CDA,\
+FIXED_REST (for rest steps)\
+REPS (HIIT, CARDIO, STRENGH_TRSINING only)
+\fs21\fsmilli10633 equipmentType 
+\fs20\fsmilli10364 exerciseCategory
+\fs21\fsmilli10633  
+\fs20\fsmilli10364 exerciseName 
+\fs21\fsmilli10633 weightValue
+\fs20\fsmilli10364  
+\fs21\fsmilli10633 weightDisplayUnit durationValue durationValueType 
+\fs20\fsmilli10364 targetType
+\fs21\fsmilli10633  
+\fs20\fsmilli10364 String String String Double String Double String String 
+\fs19\fsmilli9960 LAP_SWIMMING ONLY
+\fs20\fsmilli10364 :\
+
+\fs19\fsmilli9960 FIXED_REST (should be used for REST In LAP_SWIMMING)\
+REPETITION_SWIM_CSS_OFFSET (CSS-Based Send-Off\
+Time) valid values -60 to 60)\
+FIXED_REPETITION (Send-off time)\
+Please note "poolLengthUnit" must be set with the use of send-\
+off time.\
+
+\fs20\fsmilli10364 The type of equipment needed for this Step. Currently used\
+only for LAP_SWIMMING Workouts. Valid values: NONE,\
+SWIM_FINS, SWIM_KICKBOARD, SWIM_PADDLES,\
+SWIM_PULL_BUOY, SWIM_SNORKEL\
+
+\fs19\fsmilli9960 The exercise category for this Step. Used only for\
+
+\fs20\fsmilli10094 STRENGTH_TRAINING and CARDIO_TRAINING, HIIT,\
+PILATES, and YOGA Workouts
+\fs19\fsmilli9960 .\
+Valid values: See Appendix A and B.
+\fs20\fsmilli10364 (excel file)\
+
+\fs20\fsmilli10094 The exercise name for this Step. Used only for\
+STRENGTH_TRAINING and CARDIO_TRAINING, HIIT,\
+PILATES, and YOGA Workouts.\
+
+\fs20\fsmilli10364 See Appendix A and B (excel file)\
+The weight value for this step is kilograms. Used only for\
+STRENGTH_TRAINING Workouts.\
+
+\fs21\fsmilli10633 The units in which to display the weightValue to the\
+user, if a weightValue exists. The display unit does not\
+impact weightValue within 
+\fs20\fsmilli10364 the Training API, only for\
+display. Valid values: KILOGRAM, 
+\fs21\fsmilli10633 POUND\
+The duration value. Pair with durationType, this\
+represents the relative duration of the Step.\
+
+\fs20\fsmilli10364 A modifier for duration value is used only for HR and\
+POWER, types to 
+\fs19\fsmilli9960 express units. Valid values: PERCENT\
+
+\fs20\fsmilli10094 The type of target for this Step. Valid values: SPEED,\
+HEART_RATE
+\fs19\fsmilli9960 , CADENCE, POWER, GRADE, RESISTANCE,\
+POWER_3S, POWER_10S, POWER_30S, POWER_LAP,\
+SPEED_LAP, HEART_RATE_LAP, OPEN\
+
+\fs20\fsmilli10094 PACE (as speed in m/s)\
+
+\fs20\fsmilli10364 Please note that targetType is not supported for swim\
+workouts. Please 
+\fs21\fsmilli10633 set targetType as null for swim\
+workoutstargetValue
+\fs20\fsmilli10364  targetValueLow
+\fs21\fsmilli10633  
+\fs20\fsmilli10364 targetValueHigh targetValueType secondaryTargetType* secondaryTargetValue* secondaryTargetValueLow* Double Double Double String String Double Double 
+\fs21\fsmilli10633 Use PAZE_ZONE as the secondary target for swim\
+workouts.\
+
+\fs19\fsmilli9960 OPEN \'96 if using secondary target, this value cannot be set as\
+targetType.\
+
+\fs20\fsmilli10364 The target HR (valid values 1-5) or power zone (valid\
+values 1-7) to be used for this Step. Target zones must\
+have been previously defined and saved.\
+The lowest value for the target range. Used to specify a\
+custom range 
+\fs21\fsmilli10633 instead of specifying a target zone through\
+targetValue.\
+
+\fs20\fsmilli10364 The highest value for the target range. Used to specify a\
+custom range 
+\fs21\fsmilli10633 instead of specifying a target zone through\
+targetValue.\
+
+\fs20\fsmilli10364 A modifier for target value is used only for HR and POWER\
+types to 
+\fs19\fsmilli9960 express units. Valid values: PERCENT\
+
+\fs20\fsmilli10094 The type of target for this Step. Valid values: SPEED,\
+HEART_RATE, 
+\fs19\fsmilli9960 OPEN, CADENCE, POWER, GRADE,\
+RESISTANCE, POWER_3S, POWER_10S, POWER_30S,\
+POWER_LAP, SPEED_LAP, HEART_RATE_LAP,\
+
+\fs20\fsmilli10094 PACE (as speed in m/s)\
+LAP_SWIMMING WORKOUT only:\
+
+\fs19\fsmilli9960 1. SWIM_INSTRUCTION (Text-based Intensity target)\
+2. SWIM_CSS_OFFSET\
+PACE_ZONE (in m/s)\
+
+\fs20\fsmilli10364 The target HR (valid values 1-5) or power zone (valid\
+values 1-7) is to be used for this Step. Target zones must\
+have been previously defined and saved.\
+The lowest value for the target range. Used to specify a\
+custom range instead of specifying a target zone through\
+targetValue.\
+LAP_SWIMMING:\
+
+\fs19\fsmilli9960 SWIM_INSTRUCTION valid values: 1- 10\
+1 -RECOVERY\
+2 -VERY EASY\
+3 -EASY\
+4 -MODERATE\
+5 -HARD\
+6 -VERY_HARD
+\fs20\fsmilli10364 secondaryTargetValueHigh* secondaryTargetValueType* strokeType drillType 
+\fs21\fsmilli10633 equipmentType
+\fs20\fsmilli10364  exerciseCategory
+\fs21\fsmilli10633  
+\fs20\fsmilli10364 exerciseName Double String String String String String String 
+\fs19\fsmilli9960 7 -ALL_OUT\
+8 -FAST\
+9 -ASCEND\
+10 -DESCEND\
+SWIM_CSS_OFFSET (CSS-Based Target Pace) valid value: -60\
+to 60\
+(seconds)\
+PACE_ZONE\
+Provide value in m/s\
+0.8333333333333334 device with the metric system shown as\
+2:00/100\
+
+\fs20\fsmilli10364 The highest value for the target range. Used to specify a\
+custom range 
+\fs21\fsmilli10633 instead of specifying a target zone through\
+targetValue.\
+
+\fs20\fsmilli10364 A modifier for target value is used only for HR and POWER\
+types to 
+\fs19\fsmilli9960 express units.\
+
+\fs20\fsmilli10364 The type of stroke for this Step. Used only in\
+LAP_SWIMMING Workouts.\
+Valid values: BACKSTROKE, BREASTSTROKE,\
+BUTTERFLY, FREESTYLE, MIXED, IM, RIMO, CHOICE\
+The type of drill for this Step. Used only in\
+LAP_SWIMMING Workouts.\
+Valid values: KICK, PULL, BUTTERFLY\
+The type of equipment needed for this Step. Currently used\
+only for LAP_SWIMMING Workouts. Valid values: NONE,\
+SWIM_FINS, SWIM_KICKBOARD, SWIM_PADDLES,\
+SWIM_PULL_BUOY, SWIM_SNORKEL\
+
+\fs19\fsmilli9960 The exercise category for this Step. Used only for\
+STRENGTH_TRAINING, YOGA, and CARDIO_TRAINING\
+Workouts.\
+Valid values: See Appendix A and B.\
+
+\fs20\fsmilli10094 The exercise name for this Step. Used only for\
+STRENGTH_TRAINING and CARDIO_TRAINING, HIIT,\
+PILATES, and YOGA Workouts.\
+
+\fs20\fsmilli10364 See Appendix A for the list of exercise names for YOGA and\
+PILATES\
+
+\fs20\fsmilli10094 See Appendix B for the list of exercise names for\
+STRENGTH_TRAINING and CARDIO_TRAINING, HIIT
+\fs21\fsmilli10633 weightValue
+\fs20\fsmilli10364  Double The weight value for this step is kilograms. Used only for\
+STRENGTH_TRAINING Workouts.\
+
+\fs21\fsmilli10633 weightDisplayUnit 
+\fs20\fsmilli10364 String 
+\fs21\fsmilli10633 The units in which to display the weightValue to the\
+user, if a weightValue exists. The display unit does not\
+impact weightValue within 
+\fs20\fsmilli10364 the Training API, only for\
+display. Valid values: KILOGRAM, 
+\fs21\fsmilli10633 POUND\
+
+\f0\fs23\fsmilli11815 List of supported devices for CYCLING secondary target \cf8 https://support.garmin.com/en-\
+US/?faq=EMMh03mfYU59Zt0ldOw0U6\
+\cf3 The secondary target is valid for:\
+1.
+\f1\fs23\fsmilli11848  
+\f0\fs23\fsmilli11815 CYCLING and should be treated as a less formal, accessory target. The target type\
+for a secondary target should be different from the primary target. If secondary\
+target is used, OPEN cannot be used as first target.\
+Secondary is also supported for SWIM workouts to provide a text-based target,\
+pace, CSS-based target pace (see Appendix C for additional details)\
+2.
+\f1\fs23\fsmilli11848  
+\f0\fs23\fsmilli11815 ** Swim workouts should be distance-based and if there is a repeat block with rest as a\
+step included, an extra repeat step should be added after the repeat block because the\
+device will skip the last rest step in the repeat block.\
+
+\fs22\fsmilli11040 \cf7 3.2.2 Example JSON\
+\cf3 MULTI_SPORT:\
+\{\
+"ownerId": 12345,\
+"workoutName": "TEST",\
+"description": "TEST",\
+"sport": "MULTI_SPORT",\
+"estimatedDurationInSecs": 1200,\
+"estimatedDistanceInMeters": 1400,\
+"poolLength": null,\
+"poolLengthUnit": null,\
+"workoutProvider": "multipsport",\
+"workoutSourceId": "multisport",\
+"isSessionTransitionEnabled": true,\
+"segments": [\
+\{\
+"segmentOrder": 1,"sport": "CYCLING",\
+"poolLength": null,\
+"poolLengthUnit": null,\
+"estimatedDurationInSecs": 500,\
+"estimatedDistanceInMeters": 500,\
+"steps": [\
+\{\
+"type": "WorkoutStep",\
+"stepOrder": 1,\
+"intensity": "ACTIVE",\
+"description": "",\
+"durationType": "DISTANCE",\
+"durationValue": 1000,\
+"durationValueType": "METER",\
+"targetType": "OPEN",\
+"targetValue": null,\
+"targetValueLow": null,\
+"targetValueHigh": null,\
+"targetValueType": null,\
+"secondaryTargetType": null,\
+"secondaryTargetValue": null,\
+"secondaryTargetValueLow": null,\
+"secondaryTargetValueHigh": null,\
+"secondaryTargetValueType": null,\
+"strokeType": null\
+"drillType": null,\
+"equipmentType": null\
+"exerciseCategory": null,\
+"exerciseName": null,\
+"weightValue": null,\
+"weightDisplayUnit": null\
+\},\
+\{\
+"type": "WorkoutRepeatStep",\
+"stepOrder": 2,\
+"repeatType": "REPEAT_UNTIL_STEPS_CMPLT",\
+"repeatValue": 4,\
+"steps": [\
+\{\
+"type": "WorkoutStep",\
+"stepOrder": 3,\
+"intensity": "ACTIVE",\
+"description": null,\
+"durationType": "DISTANCE",\
+"durationValue": 100,\
+"durationValueType": "METER",\
+"targetType": null,\
+"targetValue": null,\
+"targetValueLow": null,\
+"targetValueHigh": null,"targetValueType": null,\
+"secondaryTargetType": null,\
+"secondaryTargetValue": null,\
+"secondaryTargetValueLow": null,\
+"secondaryTargetValueHigh": null,\
+"secondaryTargetValueType": null,\
+"strokeType": null,\
+"equipmentType": null,\
+"exerciseCategory": null,\
+"exerciseName": null,\
+"weightValue": null,\
+"weightDisplayUnit": null\
+\}\
+]\
+\}\
+]\
+\},\
+\{\
+"segmentOrder": 2,\
+"sport": "RUNNING",\
+"poolLength": null,\
+"poolLengthUnit": null,\
+"estimatedDurationInSecs": null,\
+"estimatedDistanceInMeters": null,\
+"steps": [\
+\{\
+"type": "WorkoutStep",\
+"stepOrder": 4,\
+"intensity": "ACTIVE",\
+"description": "",\
+"durationType": "DISTANCE",\
+"durationValue": 1000,\
+"durationValueType": "METER",\
+"targetType": "OPEN",\
+"targetValue": null,\
+"targetValueLow": null,\
+"targetValueHigh": null,\
+"targetValueType": null,\
+"secondaryTargetType": null,\
+"secondaryTargetValue": null,\
+"secondaryTargetValueLow": null,\
+"secondaryTargetValueHigh": null,\
+"secondaryTargetValueType": null,\
+"strokeType": null,\
+"drillType": null,\
+"equipmentType": null,\
+"exerciseCategory": null,\
+"exerciseName": null,\
+"weightValue": null,\
+"weightDisplayUnit": null\},\
+\{\
+"type": "WorkoutRepeatStep",\
+"stepOrder": 5,\
+"repeatType": "REPEAT_UNTIL_STEPS_CMPLT",\
+"repeatValue": 4,\
+"steps": [\
+\{\
+"type": "WorkoutStep",\
+"stepOrder": 6,\
+"intensity": "ACTIVE",\
+"description": null,\
+"durationType": "DISTANCE",\
+"durationValue": 100,\
+"durationValueType": "METER",\
+"targetType": null,\
+"targetValue": null,\
+"targetValueLow": null,\
+"targetValueHigh": null,\
+"targetValueType": null,\
+"secondaryTargetType": null,\
+"secondaryTargetValue": null,\
+"secondaryTargetValueLow": null,\
+"secondaryTargetValueHigh": null,\
+"secondaryTargetValueType": null,\
+"strokeType": null,\
+"equipmentType": null,\
+"exerciseCategory": null,\
+"exerciseName": null,\
+"weightValue": null,\
+"weightDisplayUnit": null\
+\}\
+]\
+\}\
+]\
+\}\
+]\
+\}\
+SINGLE Segment (one sport type)\
+\{\
+"ownerId": 12345,\
+"workoutName": "TEST",\
+"description": "TEST",\
+"sport": "CYCLING",\
+"estimatedDurationInSecs": 1200,\
+"estimatedDistanceInMeters": 1400,\
+"poolLength": null,\
+"poolLengthUnit": null,"workoutProvider": "single_segemnt",\
+"workoutSourceId": "single_segemnt",\
+"isSessionTransitionEnabled": false,\
+"segments": [\
+\{\
+"segmentOrder": 1,\
+"sport": "CYCLING",\
+"poolLength": null,\
+"poolLengthUnit": null,\
+"estimatedDurationInSecs": 500,\
+"estimatedDistanceInMeters": 500,\
+"steps": [\
+\{\
+"type": "WorkoutStep",\
+"stepOrder": 1,\
+"intensity": "ACTIVE",\
+"description": "",\
+"durationType": "DISTANCE",\
+"durationValue": 1000,\
+"durationValueType": "METER",\
+"targetType": "OPEN",\
+"targetValue": null,\
+"targetValueLow": null,\
+"targetValueHigh": null,\
+"targetValueType": null,\
+"secondaryTargetType": null,\
+"secondaryTargetValue": null,\
+"secondaryTargetValueLow": null,\
+"secondaryTargetValueHigh": null,\
+"secondaryTargetValueType": null,\
+"strokeType": null,\
+"drillType": null,\
+"equipmentType": null,\
+"exerciseCategory": null,\
+"exerciseName": null,\
+"weightValue": null,\
+"weightDisplayUnit": null\
+\},\
+\{\
+"type": "WorkoutRepeatStep",\
+"stepOrder": 2,\
+"repeatType": "REPEAT_UNTIL_STEPS_CMPLT",\
+"repeatValue": 4,\
+"steps": [\
+\{\
+"type": "WorkoutStep",\
+"stepOrder": 3,\
+"intensity": "ACTIVE",\
+"description": null,\
+"durationType": "DISTANCE","durationValue": 100,\
+"durationValueType": "METER",\
+"targetType": null,\
+"targetValue": null,\
+"targetValueLow": null,\
+"targetValueHigh": null,\
+"targetValueType": null,\
+"secondaryTargetType": null,\
+"secondaryTargetValue": null,\
+"secondaryTargetValueLow": null,\
+"secondaryTargetValueHigh": null,\
+"secondaryTargetValueType": null,\
+"strokeType": null,\
+"equipmentType": null,\
+"exerciseCategory": null,\
+"exerciseName": null,\
+"weightValue": null,\
+"weightDisplayUnit": null\
+\},\
+"type": "WorkoutStep",\
+"stepOrder": 4,\
+"intensity": "ACTIVE",\
+"description": "",\
+"durationType": "DISTANCE",\
+"durationValue": 1000,\
+"durationValueType": "METER",\
+"targetType": "OPEN",\
+"targetValue": null,\
+"targetValueLow": null,\
+"targetValueHigh": null,\
+"targetValueType": null,\
+"secondaryTargetType": null,\
+"secondaryTargetValue": null,\
+"secondaryTargetValueLow": null,\
+"secondaryTargetValueHigh": null,\
+"secondaryTargetValueType": null,\
+"strokeType": null,\
+"drillType": null,\
+"equipmentType": null,\
+"exerciseCategory": null,\
+"exerciseName": null,\
+"weightValue": null,\
+"weightDisplayUnit": null\
+\{\
+\},\
+\{\
+"type": "WorkoutRepeatStep",\
+"stepOrder": 5,\
+"repeatType": "REPEAT_UNTIL_STEPS_CMPLT",\
+"repeatValue": 4,"steps": [\
+\{\
+"type": "WorkoutStep",\
+"stepOrder": 6,\
+"intensity": "ACTIVE",\
+"description": null,\
+"durationType": "DISTANCE",\
+"durationValue": 100,\
+"durationValueType": "METER",\
+"targetType": null,\
+"targetValue": null,\
+"targetValueLow": null,\
+"targetValueHigh": null,\
+"targetValueType": null,\
+"secondaryTargetType": null,\
+"secondaryTargetValue": null,\
+"secondaryTargetValueLow": null,\
+"secondaryTargetValueHigh": null,\
+"secondaryTargetValueType": null,\
+"strokeType": null,\
+"equipmentType": null,\
+"exerciseCategory": null,\
+"exerciseName": null,\
+"weightValue": null,\
+"weightDisplayUnit": null\
+\}\
+]\
+\}\
+]\
+\}\
+]\
+\}\
+]\
+\}\cf7 3.2.3 Create\
+
+\fs23\fsmilli11815 \cf3 This request is to create a workout by/for a user:\
+Method & URL: POST \cf8 https://apis.garmin.com/workoutportal/workout/v2\
+\cf3 Request body: The new workout in JSON. A workout ID should not be included.\
+Content-Type: application/json\
+Response Body: The newly created workout as JSON.\
+
+\fs22\fsmilli11040 \cf7 3.2.4 Retrieve\
+
+\fs23\fsmilli11815 \cf3 This request is to retrieve a workout by/for a user:\
+Method & URL: GET \cf8 https://apis.garmin.com/training-api/workout/v2/\{workoutId\}\
+\cf3 Response body: The retrieved workout in JSON.\
+
+\fs22\fsmilli11040 \cf7 3.2.5 Update\
+
+\fs23\fsmilli11815 \cf3 This request is to update a workout by/for a user:\
+Method & URL: PUT \cf8 https://apis.garmin.com/training-api/workout/v2/\{workoutId\}\
+\cf3 Request body: The full updated workout in JSON.\
+Content-Type: application/json\
+
+\fs22\fsmilli11040 \cf7 3.2.6 Delete\
+
+\fs23\fsmilli11815 \cf3 This request is to delete a workout by/for a user:\
+Method & URL: 
+\fs22\fsmilli11040 DELETE 
+\fs23\fsmilli11815 \cf8 https://apis.garmin.com/training-api/workout/v2/\{workoutId\}\
+
+\fs22\fsmilli11040 \cf7 3.2.7 Response Code\
+
+\fs23\fsmilli11815 \cf3 HTTP Response Status Description\
+200/204 Workout successfully created\
+400 Bad Request\
+401 User Access Token doesn\'92t exist\
+403 Not allowed\
+412 User Permission error\
+429 Quota violation / rate\uc0\u8208 limiting
+\fs25\fsmilli12960 \cf7 3.3 Workout Schedules\
+
+\fs22\fsmilli11040 3.3.1 Field Definitions\
+\cf3 Filed Name Description\
+scheduleId A unique identifier for the workout schedule\
+workoutId The ID of the workout to which the schedule\
+refers\
+date The schedule data, formatter as\
+\'91YYYY-mm-dd\'92\
+\cf7 3.3.2 Example JSON\
+\cf3 \{\
+\}\
+"scheduleId":123, "workoutId":123, "date":"2019-01-31"\
+\cf7 3.3.3 Create\
+
+\fs23\fsmilli11815 \cf3 This request is to create a workout schedule by/for a user:\
+Method & URL: POST \cf8 https://apis.garmin.com/training-api/schedule/\
+\cf3 Request body: A workout schedule to create. A schedule Id should not be included.\
+Content-Type: application/json\
+
+\fs22\fsmilli11040 \cf7 3.3.4 Retrieve\
+
+\fs23\fsmilli11815 \cf3 This request is to retrieve a workout schedule by/for a user:\
+Method & URL:\
+GET \cf8 https://apis.garmin.com/training-api/schedule/\{workoutScheduleId\}\
+\cf3 Response body: The retrieved workout schedule\
+
+\fs22\fsmilli11040 \cf7 3.3.5 Update\
+
+\fs23\fsmilli11815 \cf3 This request is to update a workout schedule by/for a user:\
+Method & URL:\
+PUT \cf8 https://apis.garmin.com/training-api/schedule/\{workoutScheduleId\}\
+\cf3 Request body: The full workout schedule in JSON.\
+Content-Type: application/json\
+Response body: The updated workout schedule.
+\fs22\fsmilli11040 \cf7 3.3.6 Delete\
+
+\fs23\fsmilli11815 \cf3 This request is to delete a workout schedule by/for a user:\
+Method & URL:\
+DELETE \cf8 https://apis.garmin.com/training-api/schedule/\{workoutScheduleId\}\
+
+\fs22\fsmilli11040 \cf7 3.3.7 Retrieve by Date\
+
+\fs23\fsmilli11815 \cf3 This request is used to retrieve the workout schedule by/for a user by date range:\
+Method & URL:\
+GET \cf8 https://apis.garmin.com/training-api/schedule?startDate=YYYY-mm-\
+dd&endDate=YYYY-mm-dd\
+
+\fs22\fsmilli11040 \cf7 3.3.8 Response Code\
+
+\fs23\fsmilli11815 \cf3 HTTP Response Status Description\
+200/204 Workout successfully created\
+400 Bad Request\
+401 User Access Token doesn\'92t exist\
+403 Not allowed\
+412 User Permission error\
+429 Quota violation / rate\uc0\u8208 limiting
+\fs25\fsmilli12960 \cf7 Appendix C
+\fs22\fsmilli11040 \cf3 .\
+Garmin Connect Swim improvements feature overview\
+This is an overview of all changes for the Training API and swim workouts 2024\
+Improvement JSON/comments\
+Support for 100 workout steps for all sport\
+types\
+(except Forerunner 935 generation and\
+older, Fenix 5 generation and older)\
+Handling pool size mismatches on devices.\
+If your pool size provided via API differs\
+from the pool size set on the watch, users\
+are given the option on your device to\
+convert the workout and do it anyway\
+\'93Unspecified\'94 pool size support.\
+Workouts created with unspecified pool\
+sizes can be completed in any size of the\
+pool. The step distances specified in the\
+workout are shown on the device without\
+conversion.\
+"poolLength" : null,\
+"poolLengthUnit": null\
+Please note "poolLengthUnit" must be set\
+using send-off time, CSS-Based Send-Off\
+Time, and pace secondary target. Valid\
+values: YARD, METER\
+Swim target supported as secondary target\
+(no primary target must be specified)\
+Text-based Intensity target\
+CSS (valid values -60 to 60)\
+Pace is officially supported as a secondary\
+target\
+"targetType": null,\
+"secondaryTargetType":\
+"SWIM_INSTRUCTION",\
+"secondaryTargetValueLow": "RECOVERY"\
+"targetType": null,\
+"secondaryTargetType":\
+"SWIM_CSS_OFFSET",\
+"secondaryTargetValueLow": -5,\
+"targetType": null,\
+"secondaryTargetType": "PACE_ZONE",\
+"secondaryTargetValueLow":\
+0.5555555555555556 (the number needs\
+to be provided in m/s)\
+Please note "poolLengthUnit" must be set\
+using send-off time and pace secondaryNew drill types (\'93Kick\'94, \'93Pull\'94, and \'93Drill\'94)\
+are shown separately from the stroke type\
+on the user's device. E.g. \'93Free Pull\'94 or\
+\'93Butterfly Kick\'94.\
+New stroke types:\
+- RIMO (Reverse IM order)\
+- IM by Round\
+- Choice\
+New Step Intensity\
+- Main\
+New Duration types for Swim Rest Step\
+added: CSS-Based Send-Off Time and Send-\
+off time\
+Send-off times and target paces defined\
+relative to your CSS will automatically\
+adjust when your CSS changes. Default CSS\
+is 2:00 / 100 m.\
+skipLastRestStep Time-Based steps support. On the device,\
+an alert sounds when the target time has\
+elapsed. Continue swimming to the wall\
+and press Lap to advance to the next step.\
+target. Valid values: YARD, METER\
+"strokeType": "BUTTERFLY"\
+"drillType": "KICK"\
+(targetType will is not supported with use\
+of strokeType, please use secondary target\
+to specify targets).\
+"strokeType": "RIMO"\
+"intensity": "MAIN"\
+REPETITON_SWIM_CSS_OFFSET (CSS-\
+Based Send-Off Time) valid values -60 to 60\
+FIXED_REPETITION (Send-off time)\
+Please note "poolLengthUnit" must be set\
+with use of send-off time and pace\
+secondary target. Valid values: YARD,\
+METER\
+Optional Flag to support Garmin Connect\
+Skip Rest step feature. Set to true for all\
+LAP_SWIMMING workout to support\
+backward compatibility.\
+Range: 1 minute - 59 minutes.}

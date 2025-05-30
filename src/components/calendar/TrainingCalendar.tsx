@@ -14,6 +14,7 @@ import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/context/AuthContext";
 import { getWorkoutEvents, saveWorkoutEvent, updateWorkoutEvent, TrainingWorkout } from "@/lib/supabase-service";
+import { saveStructuredWorkout, convertCalendarEventToStructuredWorkout } from "@/lib/fit-workout-service";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
