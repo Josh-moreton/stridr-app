@@ -79,6 +79,17 @@ export type WorkoutStep = {
   updated_at: string;
 }
 
+export type TrainingPlanItem = {
+  id: string; // Primary key for the training plan item
+  training_plan_id: string; // Foreign key to training_plans.id
+  workout_file_id: string; // Foreign key to workout_files.id
+  user_id: string; // Foreign key to auth.users.id, for ownership
+  day_offset: number; // Defines which day of the plan this workout falls on (e.g., 0 for Day 1, 1 for Day 2)
+  item_order: number; // Optional: for ordering multiple workouts on the same day_offset
+  created_at: string;
+  updated_at: string;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -106,6 +117,11 @@ export type Database = {
         Row: WorkoutStep;
         Insert: Omit<WorkoutStep, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<WorkoutStep, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      training_plan_items: { // New table for linking plans and workouts
+        Row: TrainingPlanItem;
+        Insert: Omit<TrainingPlanItem, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<TrainingPlanItem, 'id' | 'created_at' | 'updated_at'>>;
       };
     };
   };
