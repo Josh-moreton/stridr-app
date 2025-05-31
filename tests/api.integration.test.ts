@@ -163,6 +163,12 @@ describe('Stridr API Integration Tests', () => {
         body: JSON.stringify(planConfig),
       });
 
+      if (response.status !== 200) {
+        const errorData = await response.text();
+        console.log('❌ Plan generation failed with status:', response.status);
+        console.log('❌ Error response:', errorData);
+      }
+
       expect(response.status).toBe(200);
 
       const data = await response.json();
@@ -200,7 +206,7 @@ describe('Stridr API Integration Tests', () => {
 
       expect(response.status).toBe(401);
       const data = await response.json();
-      expect(data.error).toContain('Unauthorized');
+      expect(data.error).toContain('Authentication');
 
       console.log('✅ Plan generation auth protection works');
     });
