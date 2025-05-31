@@ -20,6 +20,7 @@
 # misc
 .DS_Store
 *.pem
+FitSDKRelease_21.171.00/
 
 # debug
 npm-debug.log*

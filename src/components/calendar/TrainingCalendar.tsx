@@ -65,37 +65,55 @@ const TrainingCalendar: React.FC = () => {
         // First check if we have training plan data in localStorage (from previous page)
         const trainPlanData = localStorage.getItem('trainingPlanData');
         
-        // Load events from Supabase if user is logged in
+        // Load events using the new calendar API if user is logged in
         if (user) {
           try {
-            // Load both regular workout events and structured workouts
-            const [workoutEvents, structuredWorkoutFiles] = await Promise.all([
-              getWorkoutEvents(),
-              getUserStructuredWorkouts()
-            ]);
+            // Calculate date range for current month
+            const today = new Date();
+            const startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0];
+            const endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0).toISOString().split('T')[0];
             
-            setStructuredWorkouts(structuredWorkoutFiles);
+            // Use the new calendar API endpoint
+            const response = await fetch(`/api/calendar?startDate=${startDate}&endDate=${endDate}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Calendar API error: ${response.status}`);
+            }
+            
+            const data = await response.json();
             
             const allEvents: CalendarEvent[] = [];
             
-            // Add regular workout events
-            if (workoutEvents && workoutEvents.length > 0) {
-              const calendarEvents: CalendarEvent[] = workoutEvents.map(workout => ({
-                id: workout.id,
-                title: workout.title,
-                start: workout.start_date,
-                end: workout.end_date,
-                allDay: workout.all_day,
+            if (data.success && data.events) {
+              // Convert API events to calendar format
+              const calendarEvents: CalendarEvent[] = data.events.map((event: any) => ({
+                id: event.id,
+                title: event.title,
+                start: event.start,
+                end: event.end,
+                allDay: true,
                 extendedProps: {
-                  calendar: workout.color || "Success",
-                  description: workout.description,
-                  workoutType: workout.workout_type,
-                  distance: workout.distance,
-                  pace: workout.pace
+                  calendar: event.runType === 'Easy' ? 'Success' : 
+                           event.runType === 'Tempo' ? 'Warning' :
+                           event.runType === 'Interval' ? 'Danger' :
+                           event.runType === 'Long' ? 'Primary' : 'Success',
+                  description: event.description,
+                  workoutType: event.runType,
+                  distance: event.distance,
+                  completed: event.completed
                 }
               }));
               allEvents.push(...calendarEvents);
             }
+            
+            // Also load structured workouts separately for now
+            const structuredWorkoutFiles = await getUserStructuredWorkouts();
+            setStructuredWorkouts(structuredWorkoutFiles);
             
             // Add structured workouts as calendar events
             if (structuredWorkoutFiles && structuredWorkoutFiles.length > 0) {
@@ -119,7 +137,7 @@ const TrainingCalendar: React.FC = () => {
             if (allEvents.length > 0) {
               setEvents(allEvents);
             } else if (trainPlanData) {
-              // If no events in Supabase but we have training plan data, generate sample event
+              // If no events in calendar API but we have training plan data, generate sample event
               const planData = JSON.parse(trainPlanData);
               
               const sampleEvent: CalendarEvent = {
@@ -141,8 +159,8 @@ const TrainingCalendar: React.FC = () => {
               setEvents([]);
             }
           } catch (dbError) {
-            console.warn('Database not ready yet, using demo mode:', dbError);
-            // Show demo events if database isn't set up yet
+            console.warn('Calendar API not ready yet, using demo mode:', dbError);
+            // Show demo events if API isn't set up yet
             setEvents([
               {
                 id: "demo-1",
@@ -325,7 +343,31 @@ const TrainingCalendar: React.FC = () => {
       const isUserLoggedIn = !!user;
       
       if (selectedEvent) {
-        // Update existing event
+        // Update existing event using calendar API
+        if (isUserLoggedIn) {
+          const response = await fetch('/api/calendar', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              eventId: selectedEvent.id,
+              newDate: eventStartDate,
+              updates: {
+                title: eventTitle,
+                description: eventDescription,
+                distance: selectedEvent.extendedProps.distance || null,
+                duration: (selectedEvent.extendedProps as any).duration || null
+              }
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to update event: ${response.status}`);
+          }
+        }
+
+        // Update local state
         const updatedEvents = events.map((event) =>
           event.id === selectedEvent.id
             ? {
@@ -343,27 +385,10 @@ const TrainingCalendar: React.FC = () => {
         );
         
         setEvents(updatedEvents);
-        
-        if (isUserLoggedIn) {
-          // Update in Supabase
-          const workoutUpdate = {
-            title: eventTitle,
-            description: eventDescription,
-            start_date: eventStartDate,
-            end_date: eventEndDate !== eventStartDate ? eventEndDate : null,
-            workout_type: selectedEvent.extendedProps.workoutType || "Other",
-            color: eventLevel,
-            all_day: true
-          };
-          
-          await updateWorkoutEvent(selectedEvent.id as string, workoutUpdate);
-        }
       } else {
-        // Add new event
-        const newEventId = isUserLoggedIn ? undefined : Date.now().toString();
-        
+        // Add new event using calendar API
         const newEvent: CalendarEvent = {
-          id: newEventId,
+          id: Date.now().toString(), // Temporary ID
           title: eventTitle,
           start: eventStartDate,
           end: eventEndDate !== eventStartDate ? eventEndDate : undefined,
@@ -376,30 +401,34 @@ const TrainingCalendar: React.FC = () => {
         };
         
         if (isUserLoggedIn) {
-          // Save to Supabase first, then update local state with the returned data
-          const workoutToAdd = {
-            title: eventTitle,
-            description: eventDescription || "",
-            start_date: eventStartDate,
-            end_date: (eventEndDate && eventEndDate !== eventStartDate) ? eventEndDate : null, // Fix: use null instead of empty string
-            workout_type: "Other",
-            color: eventLevel || "Success",
-            all_day: true
-          };
-          
-          console.log("Attempting to save workout:", workoutToAdd);
-          
-          const savedWorkout = await saveWorkoutEvent(workoutToAdd);
-          console.log("Saved workout successfully:", savedWorkout);
-          
-          // Update the event with the ID from the database
-          newEvent.id = savedWorkout.id;
-          
-          setEvents((prevEvents) => [...prevEvents, newEvent]);
-        } else {
-          // Just add to local state for demo mode
-          setEvents((prevEvents) => [...prevEvents, newEvent]);
+          // Use calendar API to save new event
+          const response = await fetch('/api/calendar', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              title: eventTitle,
+              description: eventDescription,
+              date: eventStartDate,
+              runType: 'Other',
+              distance: null,
+              duration: null
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to create event: ${response.status}`);
+          }
+
+          const result = await response.json();
+          if (result.success) {
+            // Update event with real ID from database
+            newEvent.id = result.eventId || newEvent.id;
+          }
         }
+        
+        setEvents((prevEvents) => [...prevEvents, newEvent]);
       }
       
       closeModal();

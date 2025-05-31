@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState,useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -23,7 +23,13 @@ type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
+  subItems?: {
+    name: string;
+    path: string;
+    pro?: boolean;
+    new?: boolean;
+    icon?: React.ReactNode; // Added optional icon to subItems
+  }[];
 };
 
 const navItems: NavItem[] = [
@@ -40,7 +46,21 @@ const navItems: NavItem[] = [
   {
     icon: <BoltIcon />,
     name: "Training",
-    subItems: [{ name: "Training Plan", path: "/training-plan", pro: false }],
+    subItems: [
+      { name: "Training Plan", path: "/training-plan", pro: false },
+      {
+        name: "Workout Templates",
+        path: "/admin/structured-workouts", // Corrected path to be under admin
+        pro: false,
+        icon: <ListIcon />, // Added new sub-item
+      },
+      {
+        name: "Generate Plan", // New sub-item
+        path: "/generate-plan", // Path to the new page
+        pro: false,
+        icon: <PageIcon />, // Example icon, choose a relevant one
+      },
+    ],
   },
   {
     icon: <UserCircleIcon />,
@@ -192,6 +212,7 @@ const AppSidebar: React.FC = () => {
                           : "menu-dropdown-item-inactive"
                       }`}
                     >
+                      {subItem.icon && <span className="mr-2">{subItem.icon}</span>}
                       {subItem.name}
                       <span className="flex items-center gap-1 ml-auto">
                         {subItem.new && (
@@ -238,7 +259,7 @@ const AppSidebar: React.FC = () => {
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // const isActive = (path: string) => path === pathname;
-   const isActive = useCallback((path: string) => path === pathname, [pathname]);
+  const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
   useEffect(() => {
     // Check if the current path matches any submenu item
@@ -264,7 +285,7 @@ const AppSidebar: React.FC = () => {
     if (!submenuMatched) {
       setOpenSubmenu(null);
     }
-  }, [pathname,isActive]);
+  }, [pathname, isActive]);
 
   useEffect(() => {
     // Set the height of the submenu items when the submenu is opened
