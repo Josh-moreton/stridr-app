@@ -301,7 +301,107 @@ describe('Stridr API Integration Tests', () => {
     });
   });
 
-  // Test 5: Cross-API Integration Flow
+  // Test 5: Calendar API
+  describe('Calendar API', () => {
+    test('should fetch calendar events when authenticated', async () => {
+      expect(testState.auth).toBeTruthy();
+      
+      // First, ensure we have at least one training plan in the system
+      expect(testState.generatedPlanId).toBeTruthy();
+      
+      const today = new Date();
+      const startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0];
+      const endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0).toISOString().split('T')[0];
+
+      // Request calendar events
+      const response = await fetch(`${BASE_URL}/api/calendar?startDate=${startDate}&endDate=${endDate}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${testState.auth!.accessToken}`,
+        },
+      });
+
+      expect(response.status).toBe(200);
+      
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      
+      // Calendar might be empty if no runs are scheduled, but the API should work
+      console.log('✅ Calendar API authentication successful');
+      console.log('Events found:', data.events?.length || 0);
+    });
+
+    test('should require authentication for calendar access', async () => {
+      const today = new Date();
+      const startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+      const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+
+      // Request calendar events without authentication
+      const response = await fetch(`${BASE_URL}/api/calendar?startDate=${startDate}&endDate=${endDate}`, {
+        method: 'GET',
+      });
+
+      expect(response.status).toBe(401);
+      
+      const data = await response.json();
+      expect(data.error).toBeTruthy();
+      
+      console.log('✅ Calendar API auth protection works');
+    });
+
+    test('should create and delete a calendar event', async () => {
+      expect(testState.auth).toBeTruthy();
+      
+      // Create an event first
+      const today = new Date();
+      const eventDate = today.toISOString().split('T')[0];
+      
+      const eventData = {
+        scheduled_date: eventDate,
+        run_type: 'easy',
+        title: 'Test Easy Run',
+        description: 'This is a test run',
+        total_distance_meters: 5000,
+        total_duration_seconds: 1800,
+        plan_id: testState.generatedPlanId,
+      };
+
+      // Create the event
+      const createResponse = await fetch(`${BASE_URL}/api/calendar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${testState.auth!.accessToken}`,
+        },
+        body: JSON.stringify(eventData),
+      });
+
+      expect(createResponse.status).toBe(200);
+      
+      const createData = await createResponse.json();
+      expect(createData.success).toBe(true);
+      expect(createData.event).toBeTruthy();
+      expect(createData.event.id).toBeTruthy();
+      
+      const eventId = createData.event.id;
+      
+      // Now delete the event
+      const deleteResponse = await fetch(`${BASE_URL}/api/calendar?eventId=${eventId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${testState.auth!.accessToken}`,
+        },
+      });
+
+      expect(deleteResponse.status).toBe(200);
+      const deleteData = await deleteResponse.json();
+      expect(deleteData.success).toBe(true);
+      
+      console.log('✅ Calendar event creation and deletion successful');
+    });
+  });
+
+  // Test 6: Cross-API Integration Flow
   describe('Complete API Flow Integration', () => {
     test('should complete full user workflow: calculate paces → generate plan → retrieve plan', async () => {
       // This test validates the complete user journey

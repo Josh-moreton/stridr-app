@@ -1,306 +1,254 @@
+import { createClient } from '@supabase/supabase-js';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { createAPIClient } from '@/lib/supabase-server';
-import { ScheduledRun } from '@/lib/planGenerator';
 
-interface CalendarEvent {
-  id: string;
-  title: string;
-  start: string;
-  end: string;
-  description?: string;
-  type: 'run' | 'rest' | 'cross-training';
-  runType?: string;
-  distance?: number;
-  duration?: number;
-  completed?: boolean;
-  backgroundColor?: string;
-  borderColor?: string;
+// Create authenticated Supabase client (matches your other APIs)
+async function createAPIClient(request: NextRequest) {
+  // Check for Authorization header first (for API requests)
+  const authHeader = request.headers.get('authorization');
+  let supabase;
+  
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    // Use Bearer token authentication for API requests
+    const token = authHeader.substring(7);
+    supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      }
+    );
+  } else {
+    // Fall back to cookie-based authentication for browser requests
+    const cookieStore = await cookies();
+    supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
+  }
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user) {
+    throw new Error('Unauthorized: User not authenticated');
+  }
+
+  return { supabase, user };
 }
 
-interface CalendarRequest {
-  startDate: string;
-  endDate: string;
-  planId?: string;
-}
-
-interface CalendarResponse {
-  success: boolean;
-  events?: CalendarEvent[];
-  error?: string;
-}
-
-interface UpdateRunRequest {
-  runId: string;
-  completed: boolean;
-  actualDistance?: number;
-  actualDuration?: number;
-  notes?: string;
-}
-
-// GET /api/calendar - Get calendar events for date range
 export async function GET(request: NextRequest) {
   try {
-    const { supabase } = createAPIClient(request);
-    
-    // Verify authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized: User not authenticated' },
-        { status: 401 }
-      );
-    }
+    const { supabase, user } = await createAPIClient(request);
 
+    // Get query parameters for date range
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    const planId = searchParams.get('planId');
-
-    if (!startDate || !endDate) {
-      return NextResponse.json(
-        { error: 'Start date and end date are required' },
-        { status: 400 }
-      );
-    }
-
-    // Build query
+    
     let query = supabase
       .from('plan_scheduled_runs')
-      .select(`
-        *,
-        plan_weekly_schedules!inner (
-          plan_id,
-          user_training_plans!inner (
-            user_id,
-            plan_name
-          )
-        )
-      `)
-      .eq('plan_weekly_schedules.user_training_plans.user_id', user.id)
-      .gte('date', startDate)
-      .lte('date', endDate);
-
-    if (planId) {
-      query = query.eq('plan_weekly_schedules.plan_id', planId);
-    }
-
-    const { data: runsData, error: runsError } = await query;
-
-    if (runsError) {
-      console.error('Error fetching calendar events:', runsError);
-      return NextResponse.json(
-        { error: 'Failed to fetch calendar events' },
-        { status: 500 }
-      );
-    }
-
-    // Convert runs to calendar events
-    const events: CalendarEvent[] = runsData.map(run => {
-      const runDate = new Date(run.date);
-      const eventColor = getEventColor(run.run_type, run.completed);
+      .select('*')
+      .eq('user_id', user.id)
+      .order('run_date', { ascending: true }); // Fixed: use run_date not scheduled_date
       
-      // Estimate duration if not provided
-      let estimatedDuration = run.duration;
-      if (!estimatedDuration && run.distance) {
-        // Rough estimate: 6 min/km for easy runs, 4 min/km for hard runs
-        const paceMinPerKm = run.run_type === 'Easy' ? 6 : run.run_type === 'Long' ? 6.5 : 4.5;
-        estimatedDuration = (run.distance / 1000) * paceMinPerKm * 60; // Convert to seconds
-      }
-
-      const startTime = new Date(runDate);
-      startTime.setHours(7, 0, 0, 0); // Default start time 7:00 AM
+    if (startDate) {
+      query = query.gte('run_date', startDate); // Fixed: use run_date
+    }
+    
+    if (endDate) {
+      query = query.lte('run_date', endDate); // Fixed: use run_date
+    }
+    
+    const { data: events, error: eventsError } = await query;
       
-      const endTime = new Date(startTime);
-      if (estimatedDuration) {
-        endTime.setSeconds(endTime.getSeconds() + estimatedDuration);
-      } else {
-        endTime.setHours(endTime.getHours() + 1); // Default 1 hour
-      }
-
-      return {
-        id: run.id,
-        title: `${run.run_type}${run.distance ? ` - ${(run.distance / 1000).toFixed(1)}km` : ''}`,
-        start: startTime.toISOString(),
-        end: endTime.toISOString(),
-        description: run.description,
-        type: 'run' as const,
-        runType: run.run_type,
-        distance: run.distance,
-        duration: run.duration,
-        completed: run.completed,
-        backgroundColor: eventColor.background,
-        borderColor: eventColor.border
-      };
-    });
-
-    return NextResponse.json<CalendarResponse>({
-      success: true,
-      events
-    });
-
-  } catch (error) {
-    console.error('Error in GET /api/calendar:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    if (eventsError) {
+      console.error('Error fetching events:', eventsError);
+      return NextResponse.json({ error: 'Failed to fetch events', details: eventsError.message }, { status: 500 });
+    }
+    
+    return NextResponse.json({ success: true, events: events || [] });
+  } catch (error: any) {
+    if (error.message.includes('Unauthorized')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    console.error('Error in calendar API GET:', error);
+    return NextResponse.json({ error: 'Internal server error', details: String(error) }, { status: 500 });
   }
 }
 
-// POST /api/calendar - Add custom event or update run status
 export async function POST(request: NextRequest) {
   try {
-    const { supabase } = createAPIClient(request);
+    const { supabase, user } = await createAPIClient(request);
+
+    const eventData = await request.json();
+    console.log('📅 Received event data:', JSON.stringify(eventData, null, 2));
     
-    // Verify authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized: User not authenticated' },
-        { status: 401 }
-      );
+    if (!eventData) {
+      return NextResponse.json({ error: 'Missing event data' }, { status: 400 });
     }
+    
+    // Map frontend data to correct database schema
+    const mappedEventData = {
+      user_id: user.id,
+      run_date: eventData.date || eventData.scheduled_date || eventData.run_date || new Date().toISOString().split('T')[0], // Fixed: use run_date
+      run_type: eventData.runType || eventData.run_type || 'Easy',
+      description: eventData.description || eventData.title || 'Workout',
+      total_duration_seconds: eventData.duration || eventData.total_duration_seconds || null,
+      total_distance_meters: eventData.distance || eventData.total_distance_meters || null,
+      day_of_week: eventData.day_of_week || new Date(eventData.date || new Date()).getDay(),
+      workout_steps: eventData.workout_steps || null,
+      notes: eventData.notes || null,
+      is_completed: eventData.completed || eventData.is_completed || false, // Fixed: use is_completed
+      // Required fields - set defaults for manually created events
+      weekly_schedule_id: eventData.weekly_schedule_id || null, // Allow null for manual events
+      training_plan_id: eventData.training_plan_id || null, // Allow null for manual events
+    };
 
-    const body = await request.json();
-    const action = body.action;
-
-    if (action === 'updateRun') {
-      const { runId, completed, actualDistance, actualDuration, notes }: UpdateRunRequest = body;
-
-      if (!runId) {
-        return NextResponse.json(
-          { error: 'Run ID is required' },
-          { status: 400 }
-        );
-      }
-
-      // Update run status
-      const { error: updateError } = await supabase
-        .from('plan_scheduled_runs')
-        .update({
-          completed,
-          actual_distance: actualDistance,
-          actual_duration: actualDuration,
-          notes,
-          completed_at: completed ? new Date().toISOString() : null
-        })
-        .eq('id', runId);
-
-      if (updateError) {
-        console.error('Error updating run:', updateError);
-        return NextResponse.json(
-          { error: 'Failed to update run' },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'Run updated successfully'
-      });
+    console.log('📅 Mapped event data for DB:', JSON.stringify(mappedEventData, null, 2));
+    
+    const { data: event, error: insertError } = await supabase
+      .from('plan_scheduled_runs')
+      .insert(mappedEventData)
+      .select()
+      .single();
+      
+    if (insertError) {
+      console.error('❌ Error creating event:', insertError);
+      console.error('❌ Insert error details:', JSON.stringify(insertError, null, 2));
+      return NextResponse.json({ 
+        error: 'Failed to create event', 
+        details: insertError.message,
+        hint: insertError.hint,
+        code: insertError.code 
+      }, { status: 500 });
     }
-
-    return NextResponse.json(
-      { error: 'Invalid action' },
-      { status: 400 }
-    );
-
-  } catch (error) {
-    console.error('Error in POST /api/calendar:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    
+    console.log('✅ Successfully created event:', event);
+    return NextResponse.json({ success: true, event });
+  } catch (error: any) {
+    if (error.message.includes('Unauthorized')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    console.error('❌ Error in calendar API POST:', error);
+    console.error('❌ Error stack:', error.stack);
+    return NextResponse.json({ error: 'Internal server error', details: String(error) }, { status: 500 });
   }
 }
 
-// PUT /api/calendar - Update calendar event
 export async function PUT(request: NextRequest) {
   try {
-    const { supabase } = createAPIClient(request);
+    const { supabase, user } = await createAPIClient(request);
+
+    const { searchParams } = new URL(request.url);
+    const eventId = searchParams.get('eventId');
     
-    // Verify authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized: User not authenticated' },
-        { status: 401 }
-      );
-    }
-
-    const body = await request.json();
-    const { eventId, newDate, updates } = body;
-
     if (!eventId) {
-      return NextResponse.json(
-        { error: 'Event ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing event ID' }, { status: 400 });
+    }
+    
+    const updates = await request.json();
+    
+    if (!updates) {
+      return NextResponse.json({ error: 'Missing update data' }, { status: 400 });
     }
 
-    // Update the scheduled run
-    const updateData: any = {};
-    if (newDate) updateData.date = newDate;
-    if (updates?.distance) updateData.distance = updates.distance;
-    if (updates?.duration) updateData.duration = updates.duration;
-    if (updates?.description) updateData.description = updates.description;
-
-    const { error: updateError } = await supabase
+    // Map update fields to correct schema
+    const mappedUpdates: any = {};
+    
+    if (updates.date || updates.scheduled_date || updates.run_date) {
+      mappedUpdates.run_date = updates.date || updates.scheduled_date || updates.run_date;
+    }
+    if (updates.runType || updates.run_type) {
+      mappedUpdates.run_type = updates.runType || updates.run_type;
+    }
+    if (updates.description !== undefined) {
+      mappedUpdates.description = updates.description;
+    }
+    if (updates.duration || updates.total_duration_seconds) {
+      mappedUpdates.total_duration_seconds = updates.duration || updates.total_duration_seconds;
+    }
+    if (updates.distance || updates.total_distance_meters) {
+      mappedUpdates.total_distance_meters = updates.distance || updates.total_distance_meters;
+    }
+    if (updates.completed !== undefined || updates.is_completed !== undefined) {
+      mappedUpdates.is_completed = updates.completed !== undefined ? updates.completed : updates.is_completed;
+    }
+    if (updates.notes !== undefined) {
+      mappedUpdates.notes = updates.notes;
+    }
+    if (updates.workout_steps !== undefined) {
+      mappedUpdates.workout_steps = updates.workout_steps;
+    }
+    
+    const { data: event, error: updateError } = await supabase
       .from('plan_scheduled_runs')
-      .update(updateData)
-      .eq('id', eventId);
-
+      .update(mappedUpdates)
+      .eq('id', eventId)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+      
     if (updateError) {
-      console.error('Error updating calendar event:', updateError);
-      return NextResponse.json(
-        { error: 'Failed to update event' },
-        { status: 500 }
-      );
+      console.error('Error updating event:', updateError);
+      return NextResponse.json({ error: 'Failed to update event', details: updateError.message }, { status: 500 });
     }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Event updated successfully'
-    });
-
-  } catch (error) {
-    console.error('Error in PUT /api/calendar:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    
+    return NextResponse.json({ success: true, event });
+  } catch (error: any) {
+    if (error.message.includes('Unauthorized')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    console.error('Error in calendar API PUT:', error);
+    return NextResponse.json({ error: 'Internal server error', details: String(error) }, { status: 500 });
   }
 }
 
-// Helper functions
-function getEventColor(runType: string, completed: boolean) {
-  const baseColors = {
-    'Easy': { background: '#10B981', border: '#059669' },    // Green
-    'Tempo': { background: '#F59E0B', border: '#D97706' },   // Orange
-    'Interval': { background: '#EF4444', border: '#DC2626' }, // Red
-    'Long': { background: '#8B5CF6', border: '#7C3AED' },    // Purple
-    'Rest': { background: '#6B7280', border: '#4B5563' }     // Gray
-  };
+export async function DELETE(request: NextRequest) {
+  try {
+    const { supabase, user } = await createAPIClient(request);
 
-  const color = baseColors[runType as keyof typeof baseColors] || baseColors['Easy'];
-  
-  if (completed) {
-    return {
-      background: color.background,
-      border: color.border
-    };
-  } else {
-    // Lighter colors for incomplete runs
-    return {
-      background: color.background + '80', // Add transparency
-      border: color.border + '80'
-    };
+    const { searchParams } = new URL(request.url);
+    const eventId = searchParams.get('eventId');
+    
+    if (!eventId) {
+      return NextResponse.json({ error: 'Missing event ID' }, { status: 400 });
+    }
+    
+    const { error: deleteError } = await supabase
+      .from('plan_scheduled_runs')
+      .delete()
+      .eq('id', eventId)
+      .eq('user_id', user.id);
+      
+    if (deleteError) {
+      console.error('Error deleting event:', deleteError);
+      return NextResponse.json({ error: 'Failed to delete event', details: deleteError.message }, { status: 500 });
+    }
+    
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    if (error.message.includes('Unauthorized')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    console.error('Error in calendar API DELETE:', error);
+    return NextResponse.json({ error: 'Internal server error', details: String(error) }, { status: 500 });
   }
-}
-
-export async function DELETE() {
-  return NextResponse.json(
-    { error: 'Method not allowed. Use POST to update run status.' },
-    { status: 405 }
-  );
 }

@@ -13,7 +13,7 @@ import {
 import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/context/AuthContext";
-import { getWorkoutEvents, saveWorkoutEvent, updateWorkoutEvent, TrainingWorkout } from "@/lib/supabase-service";
+import { saveWorkoutEvent, updateWorkoutEvent, TrainingWorkout } from "@/lib/supabase-service";
 import { saveStructuredWorkout, convertCalendarEventToStructuredWorkout, FitWorkoutFile, getUserStructuredWorkouts } from "@/lib/fit-workout-service";
 import WorkoutBuilder from "./WorkoutBuilder";
 
@@ -56,6 +56,27 @@ const TrainingCalendar: React.FC = () => {
     "Rest": "Default" // Gray
   };
 
+  // Helper function to map run types to calendar display types
+  const getCalendarTypeFromRunType = (runType: string): string => {
+    switch (runType) {
+      case 'Easy':
+      case 'Recovery':
+        return 'Success'; // Green
+      case 'Long':
+        return 'Warning'; // Orange
+      case 'Threshold':
+      case 'Tempo':
+        return 'Danger'; // Red
+      case 'Interval':
+      case 'Speed':
+        return 'Primary'; // Blue
+      case 'Rest':
+        return 'Default'; // Gray
+      default:
+        return 'Success'; // Default to green
+    }
+  };
+
   useEffect(() => {
     const loadEvents = async () => {
       setIsLoading(true);
@@ -68,12 +89,12 @@ const TrainingCalendar: React.FC = () => {
         // Load events using the new calendar API if user is logged in
         if (user) {
           try {
-            // Calculate date range for current month
+            // Calculate date range for current month plus/minus 1 month for better view
             const today = new Date();
             const startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0];
             const endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0).toISOString().split('T')[0];
             
-            // Use the new calendar API endpoint
+            // Use the new calendar API endpoint that reads from plan_scheduled_runs
             const response = await fetch(`/api/calendar?startDate=${startDate}&endDate=${endDate}`, {
               method: 'GET',
               headers: {
@@ -87,80 +108,77 @@ const TrainingCalendar: React.FC = () => {
             
             const data = await response.json();
             
-            const allEvents: CalendarEvent[] = [];
-            
-            if (data.success && data.events) {
+            if (data.success && data.events && data.events.length > 0) {
               // Convert API events to calendar format
               const calendarEvents: CalendarEvent[] = data.events.map((event: any) => ({
                 id: event.id,
                 title: event.title,
                 start: event.start,
                 end: event.end,
-                allDay: true,
+                allDay: false, // Use the time from API
+                backgroundColor: event.backgroundColor,
+                borderColor: event.borderColor,
                 extendedProps: {
-                  calendar: event.runType === 'Easy' ? 'Success' : 
-                           event.runType === 'Tempo' ? 'Warning' :
-                           event.runType === 'Interval' ? 'Danger' :
-                           event.runType === 'Long' ? 'Primary' : 'Success',
+                  calendar: getCalendarTypeFromRunType(event.runType),
                   description: event.description,
                   workoutType: event.runType,
                   distance: event.distance,
+                  duration: event.duration,
                   completed: event.completed
                 }
               }));
-              allEvents.push(...calendarEvents);
-            }
-            
-            // Also load structured workouts separately for now
-            const structuredWorkoutFiles = await getUserStructuredWorkouts();
-            setStructuredWorkouts(structuredWorkoutFiles);
-            
-            // Add structured workouts as calendar events
-            if (structuredWorkoutFiles && structuredWorkoutFiles.length > 0) {
-              const structuredEvents: CalendarEvent[] = structuredWorkoutFiles.map(workout => ({
-                id: `structured-${workout.id}`,
-                title: `📋 ${workout.workout_name}`,
-                start: workout.time_created instanceof Date 
-                  ? workout.time_created.toISOString().split('T')[0] 
-                  : new Date(workout.time_created).toISOString().split('T')[0],
-                allDay: true,
-                extendedProps: {
-                  calendar: "Primary",
-                  description: `Structured workout with ${workout.num_valid_steps} steps`,
-                  workoutType: "Structured",
-                  workout_file_id: workout.id
-                }
-              }));
-              allEvents.push(...structuredEvents);
-            }
-            
-            if (allEvents.length > 0) {
-              setEvents(allEvents);
-            } else if (trainPlanData) {
-              // If no events in calendar API but we have training plan data, generate sample event
-              const planData = JSON.parse(trainPlanData);
               
-              const sampleEvent: CalendarEvent = {
-                id: Date.now().toString(),
-                title: `${planData.plan.name} - Sample Workout`,
-                start: new Date().toISOString().split('T')[0],
-                allDay: true,
-                extendedProps: { 
-                  calendar: "Primary",
-                  description: "This is a sample workout from your training plan. Add your own workouts using the 'Add Workout +' button!",
-                  workoutType: "Easy",
-                  pace: planData.paces?.easy ? `${planData.paces.easy.min}:${String(planData.paces.easy.sec).padStart(2, '0')}` : "8:30"
-                }
-              };
-              
-              setEvents([sampleEvent]);
+              setEvents(calendarEvents);
             } else {
-              // User logged in but no data yet - show welcome message
-              setEvents([]);
+              // No training plan events found - load structured workouts and provide helpful message
+              const structuredWorkoutFiles = await getUserStructuredWorkouts();
+              setStructuredWorkouts(structuredWorkoutFiles);
+              
+              const allEvents: CalendarEvent[] = [];
+              
+              if (structuredWorkoutFiles && structuredWorkoutFiles.length > 0) {
+                const structuredEvents: CalendarEvent[] = structuredWorkoutFiles.map(workout => ({
+                  id: `structured-${workout.id}`,
+                  title: `📋 ${workout.workout_name}`,
+                  start: workout.time_created instanceof Date 
+                    ? workout.time_created.toISOString().split('T')[0] 
+                    : new Date(workout.time_created).toISOString().split('T')[0],
+                  allDay: true,
+                  extendedProps: {
+                    calendar: "Primary",
+                    description: `Structured workout with ${workout.num_valid_steps} steps`,
+                    workoutType: "Structured",
+                    workout_file_id: workout.id
+                  }
+                }));
+                allEvents.push(...structuredEvents);
+              }
+              
+              if (trainPlanData) {
+                // If no events in calendar API but we have training plan data, show helpful message
+                const planData = JSON.parse(trainPlanData);
+                
+                const helpEvent: CalendarEvent = {
+                  id: `help-${Date.now()}`,
+                  title: `${planData.plan.name} - Generated Successfully!`,
+                  start: new Date().toISOString().split('T')[0],
+                  allDay: true,
+                  extendedProps: { 
+                    calendar: "Primary",
+                    description: "Your training plan has been generated! The workouts are now available in your calendar.",
+                    workoutType: "Info"
+                  }
+                };
+                
+                allEvents.push(helpEvent);
+              }
+              
+              setEvents(allEvents);
             }
+            
           } catch (dbError) {
-            console.warn('Calendar API not ready yet, using demo mode:', dbError);
-            // Show demo events if API isn't set up yet
+            console.warn('Calendar API error, using fallback mode:', dbError);
+            // Show demo events if API isn't available
             setEvents([
               {
                 id: "demo-1",
@@ -169,9 +187,8 @@ const TrainingCalendar: React.FC = () => {
                 extendedProps: { 
                   calendar: "Success",
                   workoutType: "Easy",
-                  distance: 5,
-                  pace: "9:30",
-                  description: "Demo workout - set up your database to save real workouts!"
+                  distance: 5000,
+                  description: "Demo workout - your training plan data will appear here once generated!"
                 },
               }
             ]);
